@@ -2,7 +2,7 @@ mod lexer;
 mod parser;
 mod typing;
 
-pub use lexer::{Operator, Token, TokenInfo, TokenKind};
+pub use lexer::{Operator, TokenKind};
 pub use parser::{BinOperator, Expr, ExprInfo, ExprKind};
 
 use self::typing::Type;
