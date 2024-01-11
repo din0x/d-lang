@@ -1,5 +1,11 @@
 pub fn parse_tokens<'a>(text: &str) -> Vec<Token> {
-    let token_parsers = [parse_number, parse_string, parse_operator, parse_parenthesis, parse_illegal];
+    let token_parsers = [
+        parse_number,
+        parse_string,
+        parse_operator,
+        parse_parenthesis,
+        parse_illegal,
+    ];
     let mut lexer = LexerData { text, position: 0 };
     let mut tokens = vec![];
 
@@ -160,21 +166,21 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
 
 fn parse_parenthesis(lexer: &mut LexerData) -> Option<Token> {
     let location = lexer.position;
-    
+
     let kind = match lexer.current() {
         '(' => Some(TokenKind::LParen),
         ')' => Some(TokenKind::RParen),
-        _ => None
+        _ => None,
     }?;
-    
+
     lexer.pop();
-    
+
     Some(Token {
         kind,
         info: TokenInfo {
             length: 1,
             location,
-        }
+        },
     })
 }
 

@@ -7,6 +7,7 @@ pub fn parse_ast(tokens: &[Token]) -> Expr {
         parse_comparison,
         parse_additive,
         parse_multipicative,
+        parse_parenthesis,
         parse_primary,
     ]
     .as_slice();
@@ -48,7 +49,24 @@ pub struct ExprInfo {
     pub position: usize,
 }
 
-fn parse_expr(parser: )
+fn parse_expr(parser: &mut ParserData) -> Expr {
+    let expr_parsers = [
+        parse_comparison,
+        parse_additive,
+        parse_multipicative,
+        parse_primary,
+    ]
+    .as_slice();
+
+    let mut new_parser = ParserData {
+        tokens: parser.tokens,
+        expr_parsers,
+    };
+    let expr = parse_lower_level(&mut new_parser);
+
+    parser.tokens = new_parser.tokens;
+    expr
+}
 
 fn parse_lower_level(parser: &mut ParserData) -> Expr {
     let mut new_parser = *parser;
@@ -142,10 +160,26 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     if parser.current().kind != TokenKind::LParen {
         return parse_lower_level(parser);
     }
+
+    parser.pop();
     
-    let start = parser.pop().info.location;
-    
-    let expr = parse_
+    let expr = parse_expr(parser);
+
+    if parser.current().kind == TokenKind::RParen {
+        parser.pop();
+
+        return expr;
+    }
+
+    let unexpected_token = parser.pop();
+
+    return Expr {
+        kind: ExprKind::Illegal,
+        info: ExprInfo {
+            length: unexpected_token.info.length,
+            position: unexpected_token.info.location,
+        },
+    };
 }
 
 fn parse_primary(parser: &mut ParserData) -> Expr {
