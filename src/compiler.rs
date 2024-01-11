@@ -1,10 +1,10 @@
-mod lexer;
+pub mod lexer;
 pub mod parser;
 mod typing;
 
 use self::{
     parser::{BinOperator, Expr, ExprInfo},
-    typing::Type,
+    typing::Type, lexer::TokenKind,
 };
 
 pub fn compile(code: &str) -> Result<Expr, Error> {
@@ -24,15 +24,15 @@ pub struct Error {
     pub errors: Vec<OneError>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OneError {
     pub kind: ErrorKind,
     pub info: ExprInfo,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ErrorKind {
-    InvalidExpr,
+    InvalidExpr(TokenKind),
     BinOperatorUsage(BinOperator, Type, Type),
 }
 

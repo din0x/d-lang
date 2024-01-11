@@ -27,7 +27,7 @@ pub struct Expr {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind {
-    Illegal,
+    UnexpectedToken(TokenKind),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     Int(i64),
     String(Box<str>),
@@ -174,7 +174,7 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     let unexpected_token = parser.pop();
 
     return Expr {
-        kind: ExprKind::Illegal,
+        kind: ExprKind::UnexpectedToken(unexpected_token.kind),
         info: ExprInfo {
             length: unexpected_token.info.length,
             position: unexpected_token.info.location,
@@ -188,7 +188,7 @@ fn parse_primary(parser: &mut ParserData) -> Expr {
     let kind = match &current.kind {
         TokenKind::String(string) => ExprKind::String(string.clone()),
         TokenKind::Int(int) => ExprKind::Int(*int),
-        _ => ExprKind::Illegal,
+        _ => ExprKind::UnexpectedToken(current.kind),
     };
 
     Expr {

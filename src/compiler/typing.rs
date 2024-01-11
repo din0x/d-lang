@@ -12,7 +12,7 @@ pub fn is_valid(expr: &Expr) -> Result<(), Error> {
 
 pub fn get_type(expr: &Expr) -> Result<Type, Error> {
     match &expr.kind {
-        ExprKind::Illegal => Err(Error::new(ErrorKind::InvalidExpr, expr.info)),
+        ExprKind::UnexpectedToken(token) => Err(Error::new(ErrorKind::InvalidExpr(token.clone()), expr.info)),
         ExprKind::Int(_) => Ok(Type::Int),
         ExprKind::String(_) => Ok(Type::String),
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info),

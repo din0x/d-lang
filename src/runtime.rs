@@ -20,7 +20,7 @@ pub enum Type {
 
 pub fn eval(expr: Expr) -> Value {
     match expr.kind {
-        ExprKind::Illegal => panic!("Illegal exprassion"),
+        ExprKind::UnexpectedToken(_) => panic!("Illegal exprassion"),
         ExprKind::Int(i) => Value::Int(i),
         ExprKind::String(s) => Value::String(s.clone()),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r),
