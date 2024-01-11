@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::compiler::parser::{BinOperator, Expr, ExprKind};
+use crate::compiler::{BinOperator, Expr, ExprKind};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Value {

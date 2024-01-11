@@ -1,4 +1,4 @@
-use crate::compiler::{Error, ErrorKind, lexer::{TokenKind, Operator}};
+use crate::compiler::{Error, ErrorKind, Operator, TokenKind};
 use std::fmt::Display;
 
 impl Display for Error {
@@ -24,7 +24,7 @@ impl Display for Operator {
             Self::Star => "*",
             Self::Slash => "/",
             Self::Equal => "=",
-            Self::NotEqual => "!="
+            Self::NotEqual => "!=",
         };
 
         write!(f, "{}", s)
@@ -40,7 +40,7 @@ impl Display for TokenKind {
             Self::String(s) => format!(r#""{}""#, s),
             Self::Operator(op) => format!("{}", op),
             Self::LParen => "(".into(),
-            Self::RParen => ")".into()
+            Self::RParen => ")".into(),
         };
 
         write!(f, "{}", s)

@@ -162,7 +162,7 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     }
 
     parser.pop();
-    
+
     let expr = parse_expr(parser);
 
     if parser.current().kind == TokenKind::RParen {

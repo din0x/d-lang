@@ -1,11 +1,11 @@
-pub mod lexer;
-pub mod parser;
+mod lexer;
+mod parser;
 mod typing;
 
-use self::{
-    parser::{BinOperator, Expr, ExprInfo},
-    typing::Type, lexer::TokenKind,
-};
+pub use lexer::{Operator, Token, TokenInfo, TokenKind};
+pub use parser::{BinOperator, Expr, ExprInfo, ExprKind};
+
+use self::typing::Type;
 
 pub fn compile(code: &str) -> Result<Expr, Error> {
     let tokens = lexer::parse_tokens(code);
