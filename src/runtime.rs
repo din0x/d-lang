@@ -92,6 +92,10 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr) -> Value {
         (BinOperator::Division, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 / i1),
         (BinOperator::Equal, Value::Int(i0), Value::Int(i1)) => Value::Bool(i0 == i1),
         (BinOperator::NotEqual, Value::Int(i0), Value::Int(i1)) => Value::Bool(i0 != i1),
+        (BinOperator::Less, Value::Int(i0), Value::Int(i1)) => Value::Bool(i0 < i1),
+        (BinOperator::LessOrEqual, Value::Int(i0), Value::Int(i1)) => Value::Bool(i0 <= i1),
+        (BinOperator::More, Value::Int(i0), Value::Int(i1)) => Value::Bool(i0 > i1),
+        (BinOperator::MoreOrEqual, Value::Int(i0), Value::Int(i1)) => Value::Bool(i0 >= i1),
         (BinOperator::Addition, Value::String(s0), Value::String(s1)) => {
             Value::String((s0.to_string() + &s1).into_boxed_str())
         }
@@ -103,6 +107,8 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr) -> Value {
         (BinOperator::Multiplication, Value::Int(i), Value::String(s)) => {
             Value::String(s.repeat(i as usize).into_boxed_str())
         }
+        (BinOperator::Equal, Value::Bool(b0), Value::Bool(b1)) => Value::Bool(b0 == b1),
+        (BinOperator::NotEqual, Value::Bool(b0), Value::Bool(b1)) => Value::Bool(b0 != b1),
         (_, left, right) => panic!(
             "Cannot use '{}' operator with '{}' and  '{}'",
             op,

@@ -62,6 +62,8 @@ fn get_type_bin_expr(op: BinOperator, l: &Expr, r: &Expr, info: ExprInfo) -> Res
         (BinOperator::NotEqual, Ok(Type::String), Ok(Type::String)) => Ok(Type::Bool),
         (BinOperator::Multiplication, Ok(Type::String), Ok(Type::Int)) => Ok(Type::String),
         (BinOperator::Multiplication, Ok(Type::Int), Ok(Type::String)) => Ok(Type::String),
+        (BinOperator::Equal, Ok(Type::Bool), Ok(Type::Bool)) => Ok(Type::Bool),
+        (BinOperator::NotEqual, Ok(Type::Bool), Ok(Type::Bool)) => Ok(Type::Bool),
         (_, Ok(left), Ok(right)) => Err(Error::new(
             ErrorKind::BinOperatorUsage(op, left, right),
             info,
