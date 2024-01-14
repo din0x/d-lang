@@ -1,5 +1,4 @@
 mod compiler;
-mod fmt;
 mod runtime;
 
 fn main() {

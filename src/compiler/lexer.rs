@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub fn parse_tokens<'a>(text: &str) -> Vec<Token> {
     let token_parsers = [
         parse_number,
@@ -52,6 +54,22 @@ pub enum TokenKind {
     RParen,
 }
 
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Illegal(c) => format!("'{}'", c),
+            Self::Eof => "EOF".into(),
+            Self::Int(i) => i.to_string(),
+            Self::String(s) => format!(r#""{}""#, s),
+            Self::Operator(op) => format!("{}", op),
+            Self::LParen => "(".into(),
+            Self::RParen => ")".into(),
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Operator {
     Plus,
@@ -60,6 +78,21 @@ pub enum Operator {
     Slash,
     Equal,
     NotEqual,
+}
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Star => "*",
+            Self::Slash => "/",
+            Self::Equal => "=",
+            Self::NotEqual => "!=",
+        };
+
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
