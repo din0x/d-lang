@@ -78,6 +78,10 @@ pub enum Operator {
     Slash,
     Equal,
     NotEqual,
+    Less,
+    LessOrEqual,
+    More,
+    MoreOrEqual,
 }
 
 impl Display for Operator {
@@ -89,6 +93,10 @@ impl Display for Operator {
             Self::Slash => "/",
             Self::Equal => "=",
             Self::NotEqual => "!=",
+            Self::Less => "<",
+            Self::LessOrEqual => "<=",
+            Self::More => ">",
+            Self::MoreOrEqual => ">=",
         };
 
         write!(f, "{}", s)
@@ -163,6 +171,10 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
         ("/", Operator::Slash),
         ("=", Operator::Equal),
         ("!=", Operator::NotEqual),
+        ("<", Operator::Less),
+        ("<=", Operator::LessOrEqual),
+        (">", Operator::More),
+        (">=", Operator::More),
     ];
 
     let position = lexer.position;

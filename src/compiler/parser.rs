@@ -41,6 +41,10 @@ pub enum BinOperator {
     Division,
     Equal,
     NotEqual,
+    Less,
+    LessOrEqual,
+    More,
+    MoreOrEqual,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -95,9 +99,9 @@ macro_rules! generate_condition {
     ($parser:ident, $operator:expr) => {
         $parser.current().kind == TokenKind::Operator($operator)
     };
-    ($parser:ident, $operator:expr, $($tl:expr)+) => {
+    ($parser:ident, $operator:expr, $($tl:expr),+) => {
         $parser.current().kind == TokenKind::Operator($operator) ||
-        generate_condition!($parser, $($tl)+)
+        generate_condition!($parser, $($tl),+)
     };
 }
 
@@ -166,7 +170,11 @@ make_binary_expr_parser!(
 make_binary_expr_parser!(
     parse_comparison,
     (Operator::Equal, BinOperator::Equal),
-    (Operator::NotEqual, BinOperator::NotEqual)
+    (Operator::NotEqual, BinOperator::NotEqual),
+    (Operator::Less, BinOperator::Less),
+    (Operator::LessOrEqual, BinOperator::LessOrEqual),
+    (Operator::More, BinOperator::More),
+    (Operator::MoreOrEqual, BinOperator::MoreOrEqual)
 );
 
 fn parse_parenthesis(parser: &mut ParserData) -> Expr {

@@ -71,6 +71,10 @@ impl Display for BinOperator {
             Self::Division => "/",
             Self::Equal => "=",
             Self::NotEqual => "!=",
+            Self::Less => "<",
+            Self::LessOrEqual => "<=",
+            Self::More => ">",
+            Self::MoreOrEqual => ">=",
         };
 
         write!(f, "{}", s)
