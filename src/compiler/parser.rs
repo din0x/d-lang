@@ -69,6 +69,19 @@ fn parse_expr(parser: &mut ParserData) -> Expr {
 }
 
 fn parse_lower_level(parser: &mut ParserData) -> Expr {
+    if parser.expr_parsers.is_empty() {
+        let unexpected_token = parser.pop();
+
+        return Expr {
+            kind: ExprKind::UnexpectedToken(unexpected_token.kind),
+            info: ExprInfo {
+                length: unexpected_token.info.length,
+                position: unexpected_token.info.location,
+            }
+        }
+    }
+
+
     let mut new_parser = *parser;
     new_parser.expr_parsers = &new_parser.expr_parsers[1..];
 
@@ -188,7 +201,7 @@ fn parse_primary(parser: &mut ParserData) -> Expr {
     let kind = match &current.kind {
         TokenKind::String(string) => ExprKind::String(string.clone()),
         TokenKind::Int(int) => ExprKind::Int(*int),
-        _ => ExprKind::UnexpectedToken(current.kind),
+        _ => return parse_lower_level(parser),
     };
 
     Expr {
