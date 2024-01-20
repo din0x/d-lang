@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 pub fn parse_tokens<'a>(text: &str) -> Vec<Token> {
     let token_parsers = [
+        parse_keyword_or_identifier,
         parse_number,
         parse_string,
         parse_operator,
@@ -47,9 +48,11 @@ pub struct Token {
 pub enum TokenKind {
     Illegal(char),
     Eof,
+    Keyword(Keyword),
+    Operator(Operator),
+    Identifier(String),
     Int(i64),
     String(Box<str>),
-    Operator(Operator),
     LParen,
     RParen,
 }
@@ -57,11 +60,13 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::Illegal(c) => format!("'{}'", c),
+            Self::Illegal(c) => format!("{}", c),
             Self::Eof => "EOF".into(),
             Self::Int(i) => i.to_string(),
             Self::String(s) => format!(r#""{}""#, s),
             Self::Operator(op) => format!("{}", op),
+            Self::Keyword(keyword) => format!("{}", keyword),
+            Self::Identifier(iden) => iden.clone(),
             Self::LParen => "(".into(),
             Self::RParen => ")".into(),
         };
@@ -82,6 +87,7 @@ pub enum Operator {
     LessOrEqual,
     More,
     MoreOrEqual,
+    Assignment,
 }
 
 impl Display for Operator {
@@ -97,6 +103,22 @@ impl Display for Operator {
             Self::LessOrEqual => "<=",
             Self::More => ">",
             Self::MoreOrEqual => ">=",
+            Self::Assignment => "=",
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Keyword {
+    Let,
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s: String = match self {
+            Self::Let => "let".into(),
         };
 
         write!(f, "{}", s)
@@ -113,6 +135,43 @@ fn skip_whitespace(lexer: &mut LexerData) {
     while !lexer.eof() && lexer.current().is_whitespace() {
         lexer.pop();
     }
+}
+
+fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
+    if !lexer.current().is_alphabetic() {
+        return None;
+    }
+
+    let mut text = "".to_string();
+    let position = lexer.position;
+
+    while !lexer.eof() && (lexer.current().is_alphanumeric() || lexer.current() == '_') {
+        text.push(lexer.pop());
+    }
+
+    if text.is_empty() {
+        return None;
+    }
+
+    let keywords = [("let", Keyword::Let)];
+    let mut token_kind = None;
+
+    for keyword in keywords {
+        if keyword.0 == text {
+            token_kind = Some(TokenKind::Keyword(keyword.1));
+            break;
+        }
+    }
+
+    let token_kind = token_kind.unwrap_or(TokenKind::Identifier(text.to_string()));
+
+    Some(Token {
+        kind: token_kind,
+        info: TokenInfo {
+            length: text.len(),
+            location: position,
+        },
+    })
 }
 
 fn parse_number(lexer: &mut LexerData) -> Option<Token> {
@@ -175,6 +234,7 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
         ("<=", Operator::LessOrEqual),
         (">", Operator::More),
         (">=", Operator::More),
+        ("=", Operator::Assignment)
     ];
 
     let position = lexer.position;
