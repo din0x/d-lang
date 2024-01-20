@@ -138,7 +138,7 @@ fn skip_whitespace(lexer: &mut LexerData) {
 }
 
 fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
-    if !lexer.current().is_alphabetic() && lexer.current() != '_'{
+    if !lexer.current().is_alphabetic() && lexer.current() != '_' {
         return None;
     }
 
