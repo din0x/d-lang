@@ -56,7 +56,7 @@ impl Display for BinOperator {
             Self::Subtraction => "-",
             Self::Multiplication => "*",
             Self::Division => "/",
-            Self::Equal => "=",
+            Self::Equal => "==",
             Self::NotEqual => "!=",
             Self::Less => "<",
             Self::LessOrEqual => "<=",
