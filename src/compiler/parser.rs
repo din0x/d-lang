@@ -102,10 +102,9 @@ fn parse_lower_level(parser: &mut ParserData) -> Expr {
             info: ExprInfo {
                 length: unexpected_token.info.length,
                 position: unexpected_token.info.location,
-            }
-        }
+            },
+        };
     }
-
 
     let mut new_parser = *parser;
     new_parser.expr_parsers = &new_parser.expr_parsers[1..];

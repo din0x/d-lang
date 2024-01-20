@@ -66,7 +66,6 @@ impl Display for ErrorKind {
     }
 }
 
-
 impl Error {
     pub fn new(kind: ErrorKind, info: ExprInfo) -> Error {
         Error {
