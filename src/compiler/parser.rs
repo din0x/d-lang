@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::compiler::lexer::Operator;
 
 use super::lexer::{Token, TokenKind};
@@ -45,6 +47,25 @@ pub enum BinOperator {
     LessOrEqual,
     More,
     MoreOrEqual,
+}
+
+impl Display for BinOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Addition => "+",
+            Self::Subtraction => "-",
+            Self::Multiplication => "*",
+            Self::Division => "/",
+            Self::Equal => "=",
+            Self::NotEqual => "!=",
+            Self::Less => "<",
+            Self::LessOrEqual => "<=",
+            Self::More => ">",
+            Self::MoreOrEqual => ">=",
+        };
+
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

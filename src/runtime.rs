@@ -62,25 +62,6 @@ impl Display for Type {
     }
 }
 
-impl Display for BinOperator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Addition => "+",
-            Self::Subtraction => "-",
-            Self::Multiplication => "*",
-            Self::Division => "/",
-            Self::Equal => "=",
-            Self::NotEqual => "!=",
-            Self::Less => "<",
-            Self::LessOrEqual => "<=",
-            Self::More => ">",
-            Self::MoreOrEqual => ">=",
-        };
-
-        write!(f, "{}", s)
-    }
-}
-
 fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr) -> Value {
     let left = eval(l);
     let right = eval(r);
