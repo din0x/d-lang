@@ -138,7 +138,7 @@ fn skip_whitespace(lexer: &mut LexerData) {
 }
 
 fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
-    if !lexer.current().is_alphabetic() {
+    if !lexer.current().is_alphabetic() && lexer.current() != '_'{
         return None;
     }
 
@@ -234,7 +234,7 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
         ("<=", Operator::LessOrEqual),
         (">", Operator::More),
         (">=", Operator::More),
-        ("=", Operator::Assignment)
+        ("=", Operator::Assignment),
     ];
 
     let position = lexer.position;
@@ -329,7 +329,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {
+    fn text_nums_and_strs() {
         let text = r#"123- "abc" "#;
         let expected = vec![
             Token {
@@ -365,5 +365,40 @@ mod tests {
         let tokens = parse_tokens(text);
 
         assert_eq!(tokens, expected)
+    }
+
+    #[test]
+    fn test_keywords() {
+        let text = r#"let hello = 1"#;
+        let expected = [
+            TokenKind::Keyword(Keyword::Let),
+            TokenKind::Identifier("hello".into()),
+            TokenKind::Operator(Operator::Assignment),
+            TokenKind::Int(1),
+            TokenKind::Eof,
+        ];
+
+        let tokens: Vec<TokenKind> = parse_tokens(text).iter().map(|x| x.kind.clone()).collect();
+
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn text_identifiers() {
+        let text = r#"let a _a a_a 1a a1"#;
+        let expected = [
+            TokenKind::Keyword(Keyword::Let),
+            TokenKind::Identifier("a".into()),
+            TokenKind::Identifier("_a".into()),
+            TokenKind::Identifier("a_a".into()),
+            TokenKind::Int(1),
+            TokenKind::Identifier("a".into()),
+            TokenKind::Identifier("a1".into()),
+            TokenKind::Eof,
+        ];
+
+        let tokens: Vec<TokenKind> = parse_tokens(text).iter().map(|x| x.kind.clone()).collect();
+
+        assert_eq!(tokens, expected);
     }
 }
