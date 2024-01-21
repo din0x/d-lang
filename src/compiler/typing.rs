@@ -1,28 +1,37 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use super::{
-    parser::{BinOperator, Expr, ExprInfo, ExprKind},
+    parser::{BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration},
     Error, ErrorKind,
 };
 
 pub fn is_valid(expr: &Expr) -> Result<(), Error> {
-    get_type(expr)?;
+    get_type(expr, &mut Scope::new())?;
     Ok(())
 }
 
-pub fn get_type(expr: &Expr) -> Result<Type, Error> {
+fn get_type(expr: &Expr, scope: &mut Scope) -> Result<Type, Error> {
     match &expr.kind {
         ExprKind::UnexpectedToken(token) => {
-            Err(Error::new(ErrorKind::InvalidExpr(token.clone()), expr.info))
+            Err(Error::new(ErrorKind::SyntaxError(token.clone()), expr.info))
         }
         ExprKind::Int(_) => Ok(Type::Int),
         ExprKind::String(_) => Ok(Type::String),
-        ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info),
+        ExprKind::Var(name) => {
+            if let Some(t) = scope.lookup(name) {
+                return Ok(t);
+            }
+
+            Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
+        },
+        ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info, scope),
+        ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Type {
+    Unit,
     Int,
     String,
     Bool,
@@ -36,15 +45,50 @@ impl Display for Type {
             Type::String => "String",
             Type::Bool => "Bool",
             Type::_Type => "Type",
+            Type::Unit => "Unit",
         };
 
         write!(f, "{}", s)
     }
 }
 
-fn get_type_bin_expr(op: BinOperator, l: &Expr, r: &Expr, info: ExprInfo) -> Result<Type, Error> {
-    let left = get_type(l);
-    let right = get_type(r);
+struct Scope {
+    vars: HashMap<Box<str>, Type>,
+}
+
+impl Scope {
+    fn new() -> Scope {
+        Scope {
+            vars: HashMap::new(),
+        }
+    }
+
+    fn declare(&mut self, name: Box<str>, value_type: Type) {
+        self.vars.insert(name, value_type);
+    }
+
+    fn lookup(&self, name: &Box<str>) -> Option<Type> {
+        self.vars.get(name).map(|x| *x)
+    }
+}
+
+fn get_type_var_declaration(var: &VariableDeclaration, scope: &mut Scope) -> Result<Type, Error> {
+    let value = get_type(&var.value, scope)?;
+
+    scope.declare(var.name.clone(), value);
+
+    Ok(Type::Unit)
+}
+
+fn get_type_bin_expr(
+    op: BinOperator,
+    l: &Expr,
+    r: &Expr,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<Type, Error> {
+    let left = get_type(l, scope);
+    let right = get_type(r, scope);
 
     match (op, left, right) {
         (BinOperator::Addition, Ok(Type::Int), Ok(Type::Int)) => Ok(Type::Int),
