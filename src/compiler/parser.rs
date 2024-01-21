@@ -2,10 +2,11 @@ use std::fmt::Display;
 
 use crate::compiler::lexer::Operator;
 
-use super::lexer::{Token, TokenKind};
+use super::lexer::{Keyword, Token, TokenKind};
 
 pub fn parse_ast(tokens: &[Token]) -> Expr {
     let expr_parsers = [
+        parse_variable_declaration,
         parse_comparison,
         parse_additive,
         parse_multipicative,
@@ -29,12 +30,28 @@ pub struct Expr {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind {
-    UnexpectedToken(TokenKind),
+    UnexpectedToken(UnexpectedToken),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     VariableDeclaration(VariableDeclaration),
     Int(i64),
     String(Box<str>),
 }
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct UnexpectedToken {
+    pub unexpacted: TokenKind,
+    pub expected: Option<TokenKind>,
+}
+
+//impl Display for UnexpectedToken {
+//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//        let s: String;
+//
+//        match self {}
+//
+//        write!(f, "{}", s)
+//    }
+//}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinOperator {
@@ -52,8 +69,8 @@ pub enum BinOperator {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct VariableDeclaration {
-    name: Box<str>,
-    value: Box<Expr>,
+    pub name: Box<str>,
+    pub value: Box<Expr>,
 }
 
 impl Display for BinOperator {
@@ -105,7 +122,10 @@ fn parse_lower_level(parser: &mut ParserData) -> Expr {
         let unexpected_token = parser.pop();
 
         return Expr {
-            kind: ExprKind::UnexpectedToken(unexpected_token.kind),
+            kind: ExprKind::UnexpectedToken(UnexpectedToken {
+                unexpacted: unexpected_token.kind,
+                expected: None,
+            }),
             info: ExprInfo {
                 length: unexpected_token.info.length,
                 position: unexpected_token.info.location,
@@ -204,6 +224,55 @@ make_binary_expr_parser!(
     (Operator::MoreOrEqual, BinOperator::MoreOrEqual)
 );
 
+fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
+    if parser.current().kind != TokenKind::Keyword(Keyword::Let) {
+        return parse_lower_level(parser);
+    }
+
+    let position = parser.pop().info.location;
+
+    let name = parser.pop();
+    let equal_sign = parser.pop();
+    let expr = parse_lower_level(parser);
+    let end = expr.info.position;
+
+    if let TokenKind::Identifier(iden) = name.kind {
+        if equal_sign.kind == TokenKind::Operator(Operator::Assignment) {
+            return Expr {
+                kind: ExprKind::VariableDeclaration(VariableDeclaration {
+                    name: iden.into(),
+                    value: Box::new(expr),
+                }),
+                info: ExprInfo {
+                    length: end - position,
+                    position,
+                },
+            };
+        }
+        return Expr {
+            kind: ExprKind::UnexpectedToken(UnexpectedToken {
+                unexpacted: equal_sign.kind,
+                expected: Some(TokenKind::Operator(Operator::Assignment)),
+            }),
+            info: ExprInfo {
+                length: equal_sign.info.length,
+                position: equal_sign.info.location,
+            },
+        };
+    }
+
+    Expr {
+        kind: ExprKind::UnexpectedToken(UnexpectedToken {
+            unexpacted: name.kind,
+            expected: Some(TokenKind::Identifier("".into())),
+        }),
+        info: ExprInfo {
+            length: name.info.length,
+            position: name.info.location,
+        },
+    }
+}
+
 fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     if parser.current().kind != TokenKind::LParen {
         return parse_lower_level(parser);
@@ -222,7 +291,10 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     let unexpected_token = parser.pop();
 
     return Expr {
-        kind: ExprKind::UnexpectedToken(unexpected_token.kind),
+        kind: ExprKind::UnexpectedToken(UnexpectedToken {
+            unexpacted: unexpected_token.kind,
+            expected: None,
+        }),
         info: ExprInfo {
             length: unexpected_token.info.length,
             position: unexpected_token.info.location,
