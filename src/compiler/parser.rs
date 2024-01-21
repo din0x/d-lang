@@ -31,6 +31,7 @@ pub struct Expr {
 pub enum ExprKind {
     UnexpectedToken(TokenKind),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
+    VariableDeclaration(VariableDeclaration),
     Int(i64),
     String(Box<str>),
 }
@@ -47,6 +48,12 @@ pub enum BinOperator {
     LessOrEqual,
     More,
     MoreOrEqual,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct VariableDeclaration {
+    name: Box<str>,
+    value: Box<Expr>,
 }
 
 impl Display for BinOperator {
