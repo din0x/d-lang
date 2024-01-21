@@ -4,10 +4,9 @@ mod typing;
 
 use std::fmt::Display;
 
-pub use lexer::TokenKind;
 pub use parser::{BinOperator, Expr, ExprInfo, ExprKind};
 
-use self::typing::Type;
+use self::{parser::UnexpectedToken, typing::Type};
 
 pub fn compile(code: &str) -> Result<Expr, Error> {
     let tokens = lexer::parse_tokens(code);
@@ -49,7 +48,7 @@ pub struct OneError {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ErrorKind {
-    InvalidExpr(TokenKind),
+    SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
 }
 
@@ -59,7 +58,15 @@ impl Display for ErrorKind {
             ErrorKind::BinOperatorUsage(op, l, r) => {
                 format!("Cannot use '{}' operator with '{}' and '{}'", op, l, r)
             }
-            ErrorKind::InvalidExpr(token) => format!("Unexpected token '{}'", token),
+            ErrorKind::SyntaxError(token) => {
+                let mut s = format!("Unexpected token '{}'", token.unexpacted);
+
+                if let Some(expected) = token.expected.clone() {
+                    s += format!(", expected '{}'", expected).as_str();
+                };
+
+                s
+            }
         };
 
         write!(f, "{}", s)
