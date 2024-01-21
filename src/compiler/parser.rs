@@ -33,6 +33,7 @@ pub enum ExprKind {
     UnexpectedToken(UnexpectedToken),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     VariableDeclaration(VariableDeclaration),
+    Var(Box<str>),
     Int(i64),
     String(Box<str>),
 }
@@ -305,9 +306,10 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
 fn parse_primary(parser: &mut ParserData) -> Expr {
     let current = parser.pop();
 
-    let kind = match &current.kind {
-        TokenKind::String(string) => ExprKind::String(string.clone()),
-        TokenKind::Int(int) => ExprKind::Int(*int),
+    let kind = match current.kind {
+        TokenKind::String(string) => ExprKind::String(string),
+        TokenKind::Int(int) => ExprKind::Int(int),
+        TokenKind::Identifier(name) => ExprKind::Var(name),
         _ => return parse_lower_level(parser),
     };
 
