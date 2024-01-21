@@ -66,7 +66,15 @@ impl Display for TokenKind {
             Self::String(s) => format!(r#""{}""#, s),
             Self::Operator(op) => format!("{}", op),
             Self::Keyword(keyword) => format!("{}", keyword),
-            Self::Identifier(iden) => iden.clone(),
+            Self::Identifier(iden) => {
+                let s;
+                if iden.is_empty() {
+                    s = "IDENTIFIER".into()
+                } else {
+                    s = iden.clone();
+                }
+                s
+            }
             Self::LParen => "(".into(),
             Self::RParen => ")".into(),
         };
