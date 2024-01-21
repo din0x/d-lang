@@ -50,7 +50,7 @@ pub enum TokenKind {
     Eof,
     Keyword(Keyword),
     Operator(Operator),
-    Identifier(String),
+    Identifier(Box<str>),
     Int(i64),
     String(Box<str>),
     LParen,
@@ -67,11 +67,11 @@ impl Display for TokenKind {
             Self::Operator(op) => format!("{}", op),
             Self::Keyword(keyword) => format!("{}", keyword),
             Self::Identifier(iden) => {
-                let s;
+                let s: String;
                 if iden.is_empty() {
                     s = "IDENTIFIER".into()
                 } else {
-                    s = iden.clone();
+                    s = iden.to_string().into();
                 }
                 s
             }
@@ -171,12 +171,13 @@ fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
         }
     }
 
-    let token_kind = token_kind.unwrap_or(TokenKind::Identifier(text.to_string()));
+    let length = text.len();
+    let token_kind = token_kind.unwrap_or(TokenKind::Identifier(text.into()));
 
     Some(Token {
         kind: token_kind,
         info: TokenInfo {
-            length: text.len(),
+            length,
             location: position,
         },
     })
