@@ -50,6 +50,7 @@ pub struct OneError {
 pub enum ErrorKind {
     SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
+    NoIdentifier(Box<str>),
 }
 
 impl Display for ErrorKind {
@@ -66,6 +67,9 @@ impl Display for ErrorKind {
                 };
 
                 s
+            },
+            ErrorKind::NoIdentifier(name) => {
+                format!("Cannot find '{}' in current scope", name)
             }
         };
 
