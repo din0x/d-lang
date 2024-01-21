@@ -24,6 +24,8 @@ pub fn eval(expr: Expr) -> Value {
         ExprKind::Int(i) => Value::Int(i),
         ExprKind::String(s) => Value::String(s.clone()),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r),
+        ExprKind::VariableDeclaration(_) => todo!(),
+        ExprKind::Var(_) => todo!(),
     }
 }
 
