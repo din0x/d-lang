@@ -1,14 +1,14 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::compiler::{BinOperator, Expr, ExprKind};
+use crate::compiler::{BinOperator, Expr, ExprKind, VariableDeclaration};
 
-pub fn eval(expr: Expr) -> Value {
+pub fn eval(expr: Expr, scope: &mut Scope) -> Value {
     match expr.kind {
         ExprKind::UnexpectedToken(_) => panic!("Illegal exprassion"),
         ExprKind::Int(i) => Value::Int(i),
         ExprKind::String(s) => Value::String(s.clone()),
-        ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r),
-        ExprKind::VariableDeclaration(_) => todo!(),
+        ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
+        ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
         ExprKind::Var(_) => todo!(),
     }
 }
@@ -19,6 +19,7 @@ pub enum Value {
     String(Box<str>),
     Bool(bool),
     _Type(Type),
+    Unit,
 }
 
 impl Display for Value {
@@ -28,6 +29,7 @@ impl Display for Value {
             Value::String(s) => format!(r#""{}""#, s.to_string()),
             Value::Bool(b) => b.to_string(),
             Value::_Type(_) => "Type".into(),
+            Value::Unit => "()".into(),
         };
 
         write!(f, "{}", s)
@@ -40,6 +42,7 @@ pub enum Type {
     String,
     Bool,
     Type,
+    Unit,
 }
 
 impl Display for Type {
@@ -49,6 +52,7 @@ impl Display for Type {
             Type::String => "String",
             Type::Bool => "Bool",
             Type::Type => "Type",
+            Type::Unit => "Unit",
         };
 
         write!(f, "{}", s)
@@ -61,12 +65,45 @@ pub fn get_type(v: &Value) -> Type {
         Value::String(_) => Type::String,
         Value::Bool(_) => Type::Bool,
         Value::_Type(_) => Type::Type,
+        Value::Unit => Type::Unit,
     }
 }
 
-fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr) -> Value {
-    let left = eval(l);
-    let right = eval(r);
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Scope {
+    parent: Option<Rc<Scope>>,
+    vars: HashMap<Box<str>, Value>,
+}
+
+impl Scope {
+    pub fn new(parent: Option<Rc<Scope>>) -> Scope {
+        Scope {
+            parent,
+            vars: HashMap::new(),
+        }
+    }
+
+    fn declare(&mut self, name: Box<str>, value_type: Value) {
+        self.vars.insert(name, value_type);
+    }
+
+    fn lookup(&self, name: &Box<str>) -> Value {
+        self.vars
+            .get(name)
+            .map(|x| x.clone())
+            .expect(format!("Cannot lookup variable '{}'", name).as_str())
+    }
+}
+
+impl Default for Scope {
+    fn default() -> Self {
+        Scope::new(None)
+    }
+}
+
+fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Value {
+    let left = eval(l, scope);
+    let right = eval(r, scope);
 
     match (op, left, right) {
         (BinOperator::Addition, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 + i1),
@@ -99,4 +136,10 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr) -> Value {
             get_type(&right)
         ),
     }
+}
+
+fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> Value {
+    let value =  eval(*var.value, scope);
+    scope.declare(var.name, value);
+    Value::Unit
 }
