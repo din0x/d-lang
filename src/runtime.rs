@@ -2,22 +2,6 @@ use std::fmt::Display;
 
 use crate::compiler::{BinOperator, Expr, ExprKind};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Value {
-    Int(i64),
-    String(Box<str>),
-    Bool(bool),
-    _Type(Type),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Type {
-    Int,
-    String,
-    Bool,
-    Type,
-}
-
 pub fn eval(expr: Expr) -> Value {
     match expr.kind {
         ExprKind::UnexpectedToken(_) => panic!("Illegal exprassion"),
@@ -29,13 +13,12 @@ pub fn eval(expr: Expr) -> Value {
     }
 }
 
-pub fn get_type(v: &Value) -> Type {
-    match v {
-        Value::Int(_) => Type::Int,
-        Value::String(_) => Type::String,
-        Value::Bool(_) => Type::Bool,
-        Value::_Type(_) => Type::Type,
-    }
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Value {
+    Int(i64),
+    String(Box<str>),
+    Bool(bool),
+    _Type(Type),
 }
 
 impl Display for Value {
@@ -51,6 +34,14 @@ impl Display for Value {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Type {
+    Int,
+    String,
+    Bool,
+    Type,
+}
+
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -61,6 +52,15 @@ impl Display for Type {
         };
 
         write!(f, "{}", s)
+    }
+}
+
+pub fn get_type(v: &Value) -> Type {
+    match v {
+        Value::Int(_) => Type::Int,
+        Value::String(_) => Type::String,
+        Value::Bool(_) => Type::Bool,
+        Value::_Type(_) => Type::Type,
     }
 }
 

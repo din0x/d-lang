@@ -2,7 +2,7 @@ mod compiler;
 mod runtime;
 
 fn main() {
-    let code = r###"(2 + 2) * 2"###;
+    let code = r###"hello = 1"###;
 
     let result = compiler::compile(code);
 
