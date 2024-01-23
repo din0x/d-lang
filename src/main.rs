@@ -4,9 +4,11 @@ mod runtime;
 use crate::runtime::Scope;
 
 fn main() {
-    let code = r###"hello = 1"###;
+    let scope = compiler::Scope::new();
 
-    let result = compiler::compile(code);
+    let code = r###"let hello = ""== """###;
+
+    let result = compiler::compile(code, scope);
 
     if let Ok(expr) = result {
         let mut scope = Scope::default();
