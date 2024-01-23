@@ -4,11 +4,13 @@ mod typing;
 
 use std::fmt::Display;
 
-pub use parser::{Expr, ExprInfo, ExprKind, BinOperator, VariableDeclaration};
+pub use parser::{BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration};
+
+pub use typing::Scope;
 
 use self::{parser::UnexpectedToken, typing::Type};
 
-pub fn compile(code: &str) -> Result<Expr, Error> {
+pub fn compile(code: &str, scope: Scope) -> Result<Expr, Error> {
     let tokens = lexer::parse_tokens(code);
     //    let kinds: Vec<&lexer::TokenKind> = tokens.iter().map(|x| &x.kind).collect();
     //    dbg!(kinds);
@@ -16,7 +18,7 @@ pub fn compile(code: &str) -> Result<Expr, Error> {
     let expr = parser::parse_ast(&tokens);
     //    dbg!(&expr);
 
-    typing::is_valid(&expr)?;
+    typing::is_valid(&expr, scope)?;
     Ok(expr)
 }
 
@@ -51,6 +53,13 @@ pub enum ErrorKind {
     SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
     NoIdentifier(Box<str>),
+    TypeMissmatch(TypeMissmatch),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct TypeMissmatch {
+    expected: Type,
+    found: Type,
 }
 
 impl Display for ErrorKind {
@@ -67,9 +76,12 @@ impl Display for ErrorKind {
                 };
 
                 s
-            },
+            }
             ErrorKind::NoIdentifier(name) => {
                 format!("Cannot find '{}' in current scope", name)
+            }
+            ErrorKind::TypeMissmatch(err) => {
+                format!("Expected '{}', found '{}'", err.expected, err.found)
             }
         };
 

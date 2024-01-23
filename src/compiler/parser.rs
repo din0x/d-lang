@@ -6,6 +6,7 @@ use super::lexer::{Keyword, Token, TokenKind};
 
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_variable_declaration,
+    parse_assignment,
     parse_comparison,
     parse_additive,
     parse_multipicative,
@@ -33,6 +34,7 @@ pub enum ExprKind {
     UnexpectedToken(UnexpectedToken),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     VariableDeclaration(VariableDeclaration),
+    Assignment(Box<Assignment>),
     Var(Box<str>),
     Int(i64),
     String(Box<str>),
@@ -62,6 +64,12 @@ pub enum BinOperator {
 pub struct VariableDeclaration {
     pub name: Box<str>,
     pub value: Box<Expr>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Assignment {
+    pub left: Expr,
+    pub right: Expr,
 }
 
 impl Display for BinOperator {
@@ -254,6 +262,27 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
             position: name.info.location,
         },
     }
+}
+
+fn parse_assignment(parser: &mut ParserData) -> Expr {
+    let mut left = parse_lower_level(parser);
+    let start = left.info.position;
+
+    if parser.current().kind == TokenKind::Operator(Operator::Assignment) {
+        parser.pop();
+        let right = parse_lower_level(parser);
+        let position = right.info.position;
+
+        left = Expr {
+            kind: ExprKind::Assignment(Box::new(Assignment { left: left, right })),
+            info: ExprInfo {
+                position: start,
+                length: position - start,
+            },
+        }
+    }
+
+    left
 }
 
 fn parse_parenthesis(parser: &mut ParserData) -> Expr {

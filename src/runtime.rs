@@ -10,6 +10,7 @@ pub fn eval(expr: Expr, scope: &mut Scope) -> Value {
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
         ExprKind::Var(_) => todo!(),
+        ExprKind::Assignment(_) => todo!(),
     }
 }
 
