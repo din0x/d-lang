@@ -4,7 +4,7 @@ mod typing;
 
 use std::fmt::Display;
 
-pub use parser::{BinOperator, Expr, ExprInfo, ExprKind};
+pub use parser::{Expr, ExprInfo, ExprKind, BinOperator, VariableDeclaration};
 
 use self::{parser::UnexpectedToken, typing::Type};
 
