@@ -4,19 +4,19 @@ use crate::compiler::lexer::Operator;
 
 use super::lexer::{Keyword, Token, TokenKind};
 
+const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
+    parse_variable_declaration,
+    parse_comparison,
+    parse_additive,
+    parse_multipicative,
+    parse_parenthesis,
+    parse_primary,
+];
+
 pub fn parse_ast(tokens: &[Token]) -> Expr {
-    let expr_parsers = [
-        parse_variable_declaration,
-        parse_comparison,
-        parse_additive,
-        parse_multipicative,
-        parse_parenthesis,
-        parse_primary,
-    ]
-    .as_slice();
     let mut parser = ParserData {
         tokens,
-        expr_parsers,
+        expr_parsers: EXPR_PARSERS,
     };
 
     parse_lower_level(&mut parser)
@@ -90,17 +90,9 @@ pub struct ExprInfo {
 }
 
 fn parse_expr(parser: &mut ParserData) -> Expr {
-    let expr_parsers = [
-        parse_comparison,
-        parse_additive,
-        parse_multipicative,
-        parse_primary,
-    ]
-    .as_slice();
-
     let mut new_parser = ParserData {
         tokens: parser.tokens,
-        expr_parsers,
+        expr_parsers: EXPR_PARSERS,
     };
     let expr = parse_lower_level(&mut new_parser);
 
