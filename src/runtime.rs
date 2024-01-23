@@ -140,7 +140,7 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Val
 }
 
 fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> Value {
-    let value =  eval(*var.value, scope);
+    let value = eval(*var.value, scope);
     scope.declare(var.name, value);
     Value::Unit
 }

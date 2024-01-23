@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
-    parser::{BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration, Assignment},
+    parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration},
     Error, ErrorKind, TypeMissmatch,
 };
 
@@ -19,14 +19,14 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
         ExprKind::String(_) => Ok(Type::String.into()),
         ExprKind::Var(name) => {
             if let Some(t) = scope.lookup(name) {
-                return Ok(TypeAndScopeInfo{
+                return Ok(TypeAndScopeInfo {
                     tp: t,
                     scope: Some(scope.clone()),
-                })
+                });
             }
 
             Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
-        },
+        }
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info, scope),
         ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
         ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
@@ -92,7 +92,10 @@ impl Scope {
     }
 }
 
-fn get_type_var_declaration(var: &VariableDeclaration, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_var_declaration(
+    var: &VariableDeclaration,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
     let value = get_type(&var.value, scope)?;
 
     scope.declare(var.name.clone(), value.tp);
@@ -100,18 +103,23 @@ fn get_type_var_declaration(var: &VariableDeclaration, scope: &mut Scope) -> Res
     Ok(Type::Unit.into())
 }
 
-fn get_type_assignment(assignment: &Assignment, info: ExprInfo, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_assignment(
+    assignment: &Assignment,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
     let left = get_type(&assignment.left, scope)?;
 
     let right = get_type(&assignment.right, scope)?;
 
     if left.tp != right.tp {
-        return Err(
-            Error::new(ErrorKind::TypeMissmatch(TypeMissmatch {
+        return Err(Error::new(
+            ErrorKind::TypeMissmatch(TypeMissmatch {
                 expected: left.tp,
                 found: right.tp,
-            }), info)
-        );
+            }),
+            info,
+        ));
     }
 
     Ok(Type::Unit.into())
@@ -123,7 +131,7 @@ fn get_type_bin_expr(
     r: &Expr,
     info: ExprInfo,
     scope: &mut Scope,
-    ) -> Result<TypeAndScopeInfo, Error> {
+) -> Result<TypeAndScopeInfo, Error> {
     let left = get_type(l, scope);
     let right = get_type(r, scope);
 
@@ -135,7 +143,12 @@ fn get_type_bin_expr(
     }
 }
 
-fn get_bin_expr_result_type(left: Type, right: Type, op: BinOperator, info: ExprInfo) -> Result<TypeAndScopeInfo, Error> {
+fn get_bin_expr_result_type(
+    left: Type,
+    right: Type,
+    op: BinOperator,
+    info: ExprInfo,
+) -> Result<TypeAndScopeInfo, Error> {
     let result = match (op, left, right) {
         (BinOperator::Addition, Type::Int, Type::Int) => Ok(Type::Int),
         (BinOperator::Subtraction, Type::Int, Type::Int) => Ok(Type::Int),
