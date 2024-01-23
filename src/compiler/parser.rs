@@ -44,16 +44,6 @@ pub struct UnexpectedToken {
     pub expected: Option<TokenKind>,
 }
 
-//impl Display for UnexpectedToken {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        let s: String;
-//
-//        match self {}
-//
-//        write!(f, "{}", s)
-//    }
-//}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum BinOperator {
     Addition,
