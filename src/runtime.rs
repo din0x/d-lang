@@ -1,16 +1,16 @@
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::compiler::{BinOperator, Expr, ExprKind, VariableDeclaration};
+use crate::compiler::{BinOperator, Expr, ExprKind, VariableDeclaration, Assignment};
 
-pub fn eval(expr: Expr, scope: &mut Scope) -> Value {
+pub fn eval(expr: Expr, scope: &mut Scope) -> Rc<Value> {
     match expr.kind {
         ExprKind::UnexpectedToken(_) => panic!("Illegal exprassion"),
-        ExprKind::Int(i) => Value::Int(i),
-        ExprKind::String(s) => Value::String(s.clone()),
+        ExprKind::Int(i) => Rc::new(Value::Int(i)),
+        ExprKind::String(s) => Rc::new(Value::String(s.clone())),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
-        ExprKind::Var(_) => todo!(),
-        ExprKind::Assignment(_) => todo!(),
+        ExprKind::Var(name) => eval_var(name, scope),
+        ExprKind::Assignment(assignment) => eval_assignment(*assignment, scope),
     }
 }
 
@@ -73,7 +73,7 @@ pub fn get_type(v: &Value) -> Type {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Scope {
     parent: Option<Rc<Scope>>,
-    vars: HashMap<Box<str>, Value>,
+    vars: HashMap<Box<str>, Rc<Value>>,
 }
 
 impl Scope {
@@ -85,14 +85,14 @@ impl Scope {
     }
 
     fn declare(&mut self, name: Box<str>, value_type: Value) {
-        self.vars.insert(name, value_type);
+        self.vars.insert(name, Rc::new(value_type));
     }
 
-    fn lookup(&self, name: &Box<str>) -> Value {
+    fn lookup(&self, name: &Box<str>) -> Rc<Value> {
         self.vars
             .get(name)
             .map(|x| x.clone())
-            .expect(format!("Cannot lookup variable '{}'", name).as_str())
+            .expect(format!("Cannot find '{}' in current scope", name).as_str())
     }
 }
 
@@ -102,11 +102,11 @@ impl Default for Scope {
     }
 }
 
-fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Value {
-    let left = eval(l, scope);
-    let right = eval(r, scope);
+fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Rc<Value> {
+    let left: Value = eval(l, scope).as_ref().clone();
+    let right = eval(r, scope).as_ref().clone();
 
-    match (op, left, right) {
+    Rc::new(match (op, left, right) {
         (BinOperator::Addition, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 + i1),
         (BinOperator::Subtraction, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 - i1),
         (BinOperator::Multiplication, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 * i1),
@@ -136,11 +136,22 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Val
             get_type(&left),
             get_type(&right)
         ),
-    }
+    })
 }
 
-fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> Value {
+fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> Rc<Value> {
     let value = eval(*var.value, scope);
-    scope.declare(var.name, value);
-    Value::Unit
+    scope.declare(var.name, value.as_ref().clone());
+    Value::Unit.into()
+}
+
+fn eval_var(name: Box<str>, scope: &mut Scope) -> Rc<Value> {
+    scope.lookup(&name)
+}
+
+fn eval_assignment(assignment: Assignment, scope: &mut Scope) -> Rc<Value> {
+    let left = eval(assignment.left, scope);
+    let right = eval(assignment.right, scope);
+
+    Rc::new(Value::Unit)
 }
