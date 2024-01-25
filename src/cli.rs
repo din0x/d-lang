@@ -1,5 +1,5 @@
-use std::io::{stdin, stdout, Write};
 use crate::{compiler, runtime};
+use std::io::{stdin, stdout, Write};
 
 pub fn run() {
     let scope = compiler::Scope::new();
@@ -14,7 +14,7 @@ pub fn run() {
         let result = compiler::compile(code.as_str(), scope.clone());
 
         if let Ok(expr) = result {
-            let v = runtime::eval(expr, &mut runtime_scope);
+            let v = runtime::run(expr, &mut runtime_scope);
             println!("{}", v);
         } else if let Err(err) = result {
             println!("{}", err)

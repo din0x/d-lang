@@ -1,12 +1,16 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::compiler::{BinOperator, Expr, ExprKind, VariableDeclaration, Assignment};
+use crate::compiler::{Assignment, BinOperator, Expr, ExprKind, VariableDeclaration};
 
-pub fn eval(expr: Expr, scope: &mut Scope) -> Rc<Value> {
+pub fn run(expr: Expr, scope: &mut Scope) -> Value {
+    clone_rc_value(eval(expr, scope))
+}
+
+fn eval(expr: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
     match expr.kind {
         ExprKind::UnexpectedToken(_) => panic!("Illegal exprassion"),
-        ExprKind::Int(i) => Rc::new(Value::Int(i)),
-        ExprKind::String(s) => Rc::new(Value::String(s.clone())),
+        ExprKind::Int(i) => Rc::new(RefCell::new(Value::Int(i))),
+        ExprKind::String(s) => Rc::new(RefCell::new(Value::String(s.clone()))),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
         ExprKind::Var(name) => eval_var(name, scope),
@@ -21,6 +25,12 @@ pub enum Value {
     Bool(bool),
     _Type(Type),
     Unit,
+}
+
+fn clone_rc_value(v: Rc<RefCell<Value>>) -> Value {
+    let binding = (*v).borrow().clone();
+    let v: &Value = binding.borrow();
+    v.clone()
 }
 
 impl Display for Value {
@@ -73,7 +83,7 @@ pub fn get_type(v: &Value) -> Type {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Scope {
     parent: Option<Rc<Scope>>,
-    vars: HashMap<Box<str>, Rc<Value>>,
+    vars: HashMap<Box<str>, Rc<RefCell<Value>>>,
 }
 
 impl Scope {
@@ -85,10 +95,10 @@ impl Scope {
     }
 
     fn declare(&mut self, name: Box<str>, value_type: Value) {
-        self.vars.insert(name, Rc::new(value_type));
+        self.vars.insert(name, Rc::new(RefCell::new(value_type)));
     }
 
-    fn lookup(&self, name: &Box<str>) -> Rc<Value> {
+    fn lookup(&self, name: &Box<str>) -> Rc<RefCell<Value>> {
         self.vars
             .get(name)
             .map(|x| x.clone())
@@ -102,11 +112,11 @@ impl Default for Scope {
     }
 }
 
-fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Rc<Value> {
-    let left: Value = eval(l, scope).as_ref().clone();
-    let right = eval(r, scope).as_ref().clone();
+fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
+    let left = clone_rc_value(eval(l, scope));
+    let right = clone_rc_value(eval(r, scope));
 
-    Rc::new(match (op, left, right) {
+    Rc::new(RefCell::new(match (op, left, right) {
         (BinOperator::Addition, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 + i1),
         (BinOperator::Subtraction, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 - i1),
         (BinOperator::Multiplication, Value::Int(i0), Value::Int(i1)) => Value::Int(i0 * i1),
@@ -136,22 +146,25 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Rc<
             get_type(&left),
             get_type(&right)
         ),
-    })
+    }))
 }
 
-fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> Rc<Value> {
-    let value = eval(*var.value, scope);
-    scope.declare(var.name, value.as_ref().clone());
-    Value::Unit.into()
+fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> Rc<RefCell<Value>> {
+    let value = clone_rc_value(eval(*var.value, scope));
+
+    scope.declare(var.name, value);
+    Rc::new(RefCell::new(Value::Unit))
 }
 
-fn eval_var(name: Box<str>, scope: &mut Scope) -> Rc<Value> {
+fn eval_var(name: Box<str>, scope: &mut Scope) -> Rc<RefCell<Value>> {
     scope.lookup(&name)
 }
 
-fn eval_assignment(assignment: Assignment, scope: &mut Scope) -> Rc<Value> {
+fn eval_assignment(assignment: Assignment, scope: &mut Scope) -> Rc<RefCell<Value>> {
     let left = eval(assignment.left, scope);
     let right = eval(assignment.right, scope);
 
-    Rc::new(Value::Unit)
+    *(*left).borrow_mut() = clone_rc_value(right);
+
+    Rc::new(RefCell::new(Value::Unit))
 }
