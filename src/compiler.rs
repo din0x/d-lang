@@ -4,7 +4,7 @@ mod typing;
 
 use std::fmt::Display;
 
-pub use parser::{BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration};
+pub use parser::{BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration, Assignment};
 
 pub use typing::Scope;
 
