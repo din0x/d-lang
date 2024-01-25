@@ -11,6 +11,10 @@ pub fn run() {
         let mut code = String::new();
         _ = stdin().read_line(&mut code);
 
+        if code.trim().is_empty() {
+            continue;
+        }
+
         let result = compiler::compile(code.as_str(), scope.clone());
 
         if let Ok(expr) = result {
