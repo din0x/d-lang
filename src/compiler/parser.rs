@@ -327,20 +327,27 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
 }
 
 fn parse_primary(parser: &mut ParserData) -> Expr {
-    let current = parser.pop();
+    let info;
+    let kind;
+    {
+        let current = parser.current();
+        info = current.info;
 
-    let kind = match current.kind {
-        TokenKind::String(string) => ExprKind::String(string),
-        TokenKind::Int(int) => ExprKind::Int(int),
-        TokenKind::Identifier(name) => ExprKind::Var(name),
-        _ => return parse_lower_level(parser),
-    };
+        kind = match current.kind {
+            TokenKind::String(ref string) => ExprKind::String(string.clone()),
+            TokenKind::Int(int) => ExprKind::Int(int),
+            TokenKind::Identifier(ref name) => ExprKind::Var(name.clone()),
+            _ => return parse_lower_level(parser),
+        };
+
+        parser.pop();
+    }
 
     Expr {
         kind,
         info: ExprInfo {
-            length: current.info.length,
-            position: current.info.location,
+            length: info.length,
+            position: info.location,
         },
     }
 }
