@@ -85,7 +85,7 @@ impl Display for ErrorKind {
                 format!("Expected '{}', found '{}'", err.expected, err.found)
             },
             ErrorKind::AssignmentToTemporary => {
-                format!("Trying to assign to a temporary value")
+                "Trying to assign to a temporary value".into()
             }
         };
 
