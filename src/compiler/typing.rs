@@ -112,6 +112,13 @@ fn get_type_assignment(
 
     let right = get_type(&assignment.right, scope)?;
 
+    if left.scope == None {
+        return Err(Error::new(
+            ErrorKind::AssignmentToTemporary,
+            info,
+        ));
+    }
+
     if left.tp != right.tp {
         return Err(Error::new(
             ErrorKind::TypeMissmatch(TypeMissmatch {

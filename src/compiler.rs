@@ -54,6 +54,7 @@ pub enum ErrorKind {
     BinOperatorUsage(BinOperator, Type, Type),
     NoIdentifier(Box<str>),
     TypeMissmatch(TypeMissmatch),
+    AssignmentToTemporary,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -82,6 +83,9 @@ impl Display for ErrorKind {
             }
             ErrorKind::TypeMissmatch(err) => {
                 format!("Expected '{}', found '{}'", err.expected, err.found)
+            },
+            ErrorKind::AssignmentToTemporary => {
+                format!("Trying to assign to a temporary value")
             }
         };
 
