@@ -31,13 +31,19 @@ pub struct Expr {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind {
-    UnexpectedToken(UnexpectedToken),
+    IllegalExpr(IllegalExpr),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     VariableDeclaration(VariableDeclaration),
     Assignment(Box<Assignment>),
     Var(Box<str>),
     Int(i64),
     String(Box<str>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum IllegalExpr {
+    UnexpectedToken(UnexpectedToken),
+    IllegalChar(char),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -110,16 +116,22 @@ fn parse_expr(parser: &mut ParserData) -> Expr {
 
 fn parse_lower_level(parser: &mut ParserData) -> Expr {
     if parser.expr_parsers.is_empty() {
-        let unexpected_token = parser.pop();
+        let unexpacted = parser.pop();
+
+        let mut illegal_expr = IllegalExpr::UnexpectedToken(UnexpectedToken {
+            unexpacted: unexpacted.kind.clone(),
+            expected: None,
+        });
+
+        if let TokenKind::Illegal(c) = unexpacted.kind {
+            illegal_expr = IllegalExpr::IllegalChar(c);
+        }
 
         return Expr {
-            kind: ExprKind::UnexpectedToken(UnexpectedToken {
-                unexpacted: unexpected_token.kind,
-                expected: None,
-            }),
+            kind: ExprKind::IllegalExpr(illegal_expr),
             info: ExprInfo {
-                length: unexpected_token.info.length,
-                position: unexpected_token.info.location,
+                length: unexpacted.info.length,
+                position: unexpacted.info.location,
             },
         };
     }
@@ -241,10 +253,10 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
             };
         }
         return Expr {
-            kind: ExprKind::UnexpectedToken(UnexpectedToken {
+            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
                 unexpacted: equal_sign.kind,
                 expected: Some(TokenKind::Operator(Operator::Assignment)),
-            }),
+            })),
             info: ExprInfo {
                 length: equal_sign.info.length,
                 position: equal_sign.info.location,
@@ -253,10 +265,10 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
     }
 
     Expr {
-        kind: ExprKind::UnexpectedToken(UnexpectedToken {
+        kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
             unexpacted: name.kind,
             expected: Some(TokenKind::Identifier("".into())),
-        }),
+        })),
         info: ExprInfo {
             length: name.info.length,
             position: name.info.location,
@@ -303,10 +315,10 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     let unexpected_token = parser.pop();
 
     return Expr {
-        kind: ExprKind::UnexpectedToken(UnexpectedToken {
+        kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
             unexpacted: unexpected_token.kind,
             expected: None,
-        }),
+        })),
         info: ExprInfo {
             length: unexpected_token.info.length,
             position: unexpected_token.info.location,

@@ -50,6 +50,7 @@ pub struct OneError {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ErrorKind {
+    IllagalChar(char),
     SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
     NoIdentifier(Box<str>),
@@ -69,6 +70,9 @@ impl Display for ErrorKind {
             ErrorKind::BinOperatorUsage(op, l, r) => {
                 format!("Cannot use '{}' operator with '{}' and '{}'", op, l, r)
             }
+            ErrorKind::IllagalChar(c) => {
+                format!("Found unexpected character '{}'", c)
+            }
             ErrorKind::SyntaxError(token) => {
                 let mut s = format!("Unexpected token '{}'", token.unexpacted);
 
@@ -83,10 +87,8 @@ impl Display for ErrorKind {
             }
             ErrorKind::TypeMissmatch(err) => {
                 format!("Expected '{}', found '{}'", err.expected, err.found)
-            },
-            ErrorKind::AssignmentToTemporary => {
-                "Trying to assign to a temporary value".into()
             }
+            ErrorKind::AssignmentToTemporary => "Trying to assign to a temporary value".into(),
         };
 
         write!(f, "{}", s)

@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
-    parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, VariableDeclaration},
+    parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, IllegalExpr, VariableDeclaration},
     Error, ErrorKind, TypeMissmatch,
 };
 
@@ -12,9 +12,12 @@ pub fn is_valid(expr: &Expr, mut scope: Scope) -> Result<(), Error> {
 
 fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
     match &expr.kind {
-        ExprKind::UnexpectedToken(token) => {
-            Err(Error::new(ErrorKind::SyntaxError(token.clone()), expr.info))
-        }
+        ExprKind::IllegalExpr(illegal) => match illegal {
+            IllegalExpr::IllegalChar(c) => Err(Error::new(ErrorKind::IllagalChar(*c), expr.info)),
+            IllegalExpr::UnexpectedToken(token) => {
+                Err(Error::new(ErrorKind::SyntaxError(token.clone()), expr.info))
+            }
+        },
         ExprKind::Int(_) => Ok(Type::Int.into()),
         ExprKind::String(_) => Ok(Type::String.into()),
         ExprKind::Var(name) => {
@@ -113,10 +116,7 @@ fn get_type_assignment(
     let right = get_type(&assignment.right, scope)?;
 
     if left.scope == None {
-        return Err(Error::new(
-            ErrorKind::AssignmentToTemporary,
-            info,
-        ));
+        return Err(Error::new(ErrorKind::AssignmentToTemporary, info));
     }
 
     if left.tp != right.tp {

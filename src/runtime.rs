@@ -8,7 +8,7 @@ pub fn run(expr: Expr, scope: &mut Scope) -> Value {
 
 fn eval(expr: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
     match expr.kind {
-        ExprKind::UnexpectedToken(_) => panic!("Illegal exprassion"),
+        ExprKind::IllegalExpr(_) => panic!("Illegal exprassion"),
         ExprKind::Int(i) => Rc::new(RefCell::new(Value::Int(i))),
         ExprKind::String(s) => Rc::new(RefCell::new(Value::String(s.clone()))),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
