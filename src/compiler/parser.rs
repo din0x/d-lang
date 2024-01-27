@@ -301,7 +301,7 @@ fn parse_block(parser: &mut ParserData) -> Expr {
         return Expr {
             kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
                 unexpacted: parser.current().kind.clone(),
-                expected: Some(TokenKind::LSquirly),
+                expected: Some(TokenKind::RSquirly),
             })),
             info: ExprInfo {
                 position: parser.current().info.location,
