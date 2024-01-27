@@ -434,6 +434,7 @@ fn parse_primary(parser: &mut ParserData) -> Expr {
             TokenKind::String(ref string) => ExprKind::String(string.clone()),
             TokenKind::Int(int) => ExprKind::Int(int),
             TokenKind::Identifier(ref name) => ExprKind::Var(name.clone()),
+            TokenKind::LSquirly => return parse_block(parser),
             _ => return parse_lower_level(parser),
         };
 
