@@ -55,6 +55,8 @@ pub enum TokenKind {
     String(Box<str>),
     LParen,
     RParen,
+    LSquirly,
+    RSquirly,
 }
 
 impl Display for TokenKind {
@@ -77,6 +79,8 @@ impl Display for TokenKind {
             }
             Self::LParen => "(".into(),
             Self::RParen => ")".into(),
+            Self::LSquirly => "{".into(),
+            Self::RSquirly => "}".into(),
         };
 
         write!(f, "{}", s)
@@ -293,6 +297,8 @@ fn parse_parenthesis(lexer: &mut LexerData) -> Option<Token> {
     let kind = match lexer.current() {
         '(' => Some(TokenKind::LParen),
         ')' => Some(TokenKind::RParen),
+        '{' => Some(TokenKind::LSquirly),
+        '}' => Some(TokenKind::RSquirly),
         _ => None,
     }?;
 
