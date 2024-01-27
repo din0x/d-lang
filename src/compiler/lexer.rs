@@ -118,18 +118,28 @@ impl Display for Operator {
     }
 }
 
+const KEYWORDS: &[(&str, Keyword)] = &[
+    ("let", Keyword::Let),
+    ("if", Keyword::If),
+    ("else", Keyword::Else),
+];
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Keyword {
     Let,
+    If,
+    Else,
 }
 
 impl Display for Keyword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s: String = match self {
-            Self::Let => "let".into(),
-        };
+        for keyword in KEYWORDS {
+            if keyword.1 == *self {
+                return write!(f, "{}", keyword.0);
+            }
+        }
 
-        write!(f, "{}", s)
+        panic!("Keyword not found: {}", self)
     }
 }
 
@@ -161,10 +171,9 @@ fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
         return None;
     }
 
-    let keywords = [("let", Keyword::Let)];
     let mut token_kind = None;
 
-    for keyword in keywords {
+    for keyword in KEYWORDS {
         if keyword.0 == text {
             token_kind = Some(TokenKind::Keyword(keyword.1));
             break;
