@@ -5,6 +5,7 @@ use crate::compiler::lexer::Operator;
 use super::lexer::{Keyword, Token, TokenKind};
 
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
+    parse_if_else,
     parse_variable_declaration,
     parse_assignment,
     parse_comparison,
@@ -256,7 +257,6 @@ fn parse_if_else(parser: &mut ParserData) -> Expr {
     let end = block.info.position + block.info.length;
     if parser.current().kind == TokenKind::Keyword(Keyword::Else) {
         parser.pop();
-
         if parser.current().kind == TokenKind::Keyword(Keyword::If) {
             else_expr = Some(parse_if_else(parser));
         } else {
@@ -314,11 +314,13 @@ fn parse_block(parser: &mut ParserData) -> Expr {
     }
 
     Expr {
-        kind: ExprKind::Block(Block { content: Box::new(expr) }),
+        kind: ExprKind::Block(Block {
+            content: Box::new(expr),
+        }),
         info: ExprInfo {
             position,
-            length: end - position
-        }
+            length: end - position,
+        },
     }
 }
 
