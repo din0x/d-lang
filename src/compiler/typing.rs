@@ -5,7 +5,7 @@ use super::{
         Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr,
         VariableDeclaration,
     },
-    Error, ErrorKind, OneError, TypeMissmatch,
+    Error, ErrorKind, TypeMissmatch,
 };
 
 pub fn is_valid(expr: &Expr, mut scope: Scope) -> Result<(), Error> {
@@ -129,6 +129,7 @@ fn get_type_if_else(
                     block.info,
                 ));
             }
+            return Ok(if_type);
         }
         None => {
             return Ok(TypeAndScopeInfo {
@@ -137,14 +138,9 @@ fn get_type_if_else(
             });
         }
     };
-
-    todo!()
 }
 
-fn get_type_block(
-    block: &Block,
-    scope: &mut Scope,
-) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
     get_type(&block.content, scope)
 }
 
