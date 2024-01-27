@@ -1,8 +1,11 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
-    parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, IllegalExpr, VariableDeclaration},
-    Error, ErrorKind, TypeMissmatch,
+    parser::{
+        Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr,
+        VariableDeclaration,
+    },
+    Error, ErrorKind, OneError, TypeMissmatch,
 };
 
 pub fn is_valid(expr: &Expr, mut scope: Scope) -> Result<(), Error> {
@@ -33,6 +36,8 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info, scope),
         ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
         ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
+        ExprKind::IfExpr(if_expr) => get_type_if_else(if_expr, expr.info, scope),
+        ExprKind::Block(block) => get_type_block(block, scope),
     }
 }
 
@@ -93,6 +98,54 @@ impl Scope {
     fn lookup(&self, name: &Box<str>) -> Option<Type> {
         self.vars.borrow().get(name).map(|x| *x)
     }
+}
+
+fn get_type_if_else(
+    if_else: &IfExpr,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
+    let condition_type = get_type(&if_else.condition, scope)?;
+    if condition_type.tp != Type::Bool {
+        return Err(Error::new(
+            ErrorKind::TypeMissmatch(TypeMissmatch {
+                expected: Type::Bool,
+                found: condition_type.tp,
+            }),
+            info,
+        ));
+    }
+
+    let if_type = get_type(&if_else.block, scope)?;
+    match if_else.else_expr {
+        Some(ref block) => {
+            let else_block_type = get_type(block, scope)?;
+            if if_type.tp != else_block_type.tp {
+                return Err(Error::new(
+                    ErrorKind::TypeMissmatch(TypeMissmatch {
+                        expected: if_type.tp,
+                        found: else_block_type.tp,
+                    }),
+                    block.info,
+                ));
+            }
+        }
+        None => {
+            return Ok(TypeAndScopeInfo {
+                tp: Type::Unit,
+                scope: None,
+            });
+        }
+    };
+
+    todo!()
+}
+
+fn get_type_block(
+    block: &Block,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
+    get_type(&block.content, scope)
 }
 
 fn get_type_var_declaration(
