@@ -35,9 +35,23 @@ pub enum ExprKind {
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     VariableDeclaration(VariableDeclaration),
     Assignment(Box<Assignment>),
+    IfExpr(Box<IfExpr>),
+    Block(Block),
     Var(Box<str>),
     Int(i64),
     String(Box<str>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct IfExpr {
+    pub condition: Expr,
+    pub block: Expr,
+    pub else_expr: Option<Expr>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Block {
+    pub content: Box<Expr>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -226,6 +240,87 @@ make_binary_expr_parser!(
     (Operator::More, BinOperator::More),
     (Operator::MoreOrEqual, BinOperator::MoreOrEqual)
 );
+
+fn parse_if_else(parser: &mut ParserData) -> Expr {
+    if parser.current().kind != TokenKind::Keyword(Keyword::If) {
+        return parse_lower_level(parser);
+    }
+
+    let position = parser.current().info.location;
+    parser.pop();
+
+    let condition = parse_lower_level(parser);
+    let block = parse_block(parser);
+
+    let mut else_expr = None;
+    let end = block.info.position + block.info.length;
+    if parser.current().kind == TokenKind::Keyword(Keyword::Else) {
+        parser.pop();
+
+        if parser.current().kind == TokenKind::Keyword(Keyword::If) {
+            else_expr = Some(parse_if_else(parser));
+        } else {
+            else_expr = Some(parse_block(parser));
+        }
+    }
+
+    Expr {
+        kind: ExprKind::IfExpr(Box::new(IfExpr {
+            condition,
+            block,
+            else_expr,
+        })),
+        info: ExprInfo {
+            position,
+            length: end - position,
+        },
+    }
+}
+
+fn parse_block(parser: &mut ParserData) -> Expr {
+    let position = parser.current().info.location;
+    if parser.current().kind != TokenKind::LSquirly {
+        return Expr {
+            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
+                unexpacted: parser.current().kind.clone(),
+                expected: Some(TokenKind::LSquirly),
+            })),
+            info: ExprInfo {
+                position: parser.current().info.location,
+                length: 1,
+            },
+        };
+    } else {
+        parser.pop();
+    }
+
+    let expr = parse_expr(parser);
+
+    let end;
+    if parser.current().kind != TokenKind::RSquirly {
+        return Expr {
+            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
+                unexpacted: parser.current().kind.clone(),
+                expected: Some(TokenKind::LSquirly),
+            })),
+            info: ExprInfo {
+                position: parser.current().info.location,
+                length: 1,
+            },
+        };
+    } else {
+        end = parser.current().info.location;
+        parser.pop();
+    }
+
+    Expr {
+        kind: ExprKind::Block(Block { content: Box::new(expr) }),
+        info: ExprInfo {
+            position,
+            length: end - position
+        }
+    }
+}
 
 fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
     if parser.current().kind != TokenKind::Keyword(Keyword::Let) {
