@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::compiler::{Assignment, BinOperator, Expr, ExprKind, VariableDeclaration};
+use crate::compiler::{Assignment, BinOperator, Expr, ExprKind, IfExpr, VariableDeclaration};
 
 pub fn run(expr: Expr, scope: &mut Scope) -> Value {
     clone_rc_value(eval(expr, scope))
@@ -13,8 +13,10 @@ fn eval(expr: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
         ExprKind::String(s) => Rc::new(RefCell::new(Value::String(s.clone()))),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
-        ExprKind::Var(name) => eval_var(name, scope),
-        ExprKind::Assignment(assignment) => eval_assignment(*assignment, scope),
+        ExprKind::Var(expr) => eval_var(expr, scope),
+        ExprKind::Assignment(expr) => eval_assignment(*expr, scope),
+        ExprKind::Block(expr) => eval(*expr.content, scope),
+        ExprKind::IfExpr(expr) => eval_if_expr(*expr, scope),
     }
 }
 
@@ -167,4 +169,20 @@ fn eval_assignment(assignment: Assignment, scope: &mut Scope) -> Rc<RefCell<Valu
     *(*left).borrow_mut() = clone_rc_value(right);
 
     Rc::new(RefCell::new(Value::Unit))
+}
+
+fn eval_if_expr(expr: IfExpr, scope: &mut Scope) -> Rc<RefCell<Value>> {
+    match clone_rc_value(eval(expr.condition, scope)) {
+        Value::Bool(condition) => {
+            return if condition {
+                eval(expr.block, scope)
+            } else {
+                match expr.else_expr {
+                    Some(block) => eval(block, scope),
+                    None => Rc::new(RefCell::new(Value::Unit)),
+                }
+            };
+        }
+        x => panic!("Condition was {}", x),
+    }
 }
