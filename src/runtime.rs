@@ -83,28 +83,52 @@ pub fn get_type(v: &Value) -> Type {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Scope {
-    parent: Option<Rc<Scope>>,
+pub struct Scope(Rc<RefCell<ScopeContent>>);
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ScopeContent {
+    parent: Option<Scope>,
     vars: HashMap<Box<str>, Rc<RefCell<Value>>>,
 }
 
 impl Scope {
-    pub fn new(parent: Option<Rc<Scope>>) -> Scope {
-        Scope {
+    pub fn new(parent: Option<Scope>) -> Scope {
+        Scope(Rc::new(RefCell::new(ScopeContent {
             parent,
             vars: HashMap::new(),
-        }
+        })))
     }
 
     fn declare(&mut self, name: Box<str>, value_type: Value) {
-        self.vars.insert(name, Rc::new(RefCell::new(value_type)));
+        self.0
+            .as_ref()
+            .borrow_mut()
+            .vars
+            .insert(name, Rc::new(RefCell::new(value_type)));
+    }
+
+    fn get_scope(&self, name: &Box<str>) -> Option<Scope> {
+        if self.0.as_ref().borrow().vars.contains_key(name) {
+            return Some(self.clone());
+        }
+
+        if let Some(ref parent) = self.0.as_ref().borrow().parent {
+            return parent.get_scope(name);
+        }
+
+        None
     }
 
     fn lookup(&self, name: &Box<str>) -> Rc<RefCell<Value>> {
-        self.vars
-            .get(name)
-            .map(|x| x.clone())
+        self.get_scope(name)
             .expect(format!("Cannot find '{}' in current scope", name).as_str())
+            .0
+            .as_ref()
+            .borrow()
+            .vars
+            .get(name)
+            .expect(format!("Cannot find '{}' in current scope", name).as_str())
+            .clone()
     }
 }
 

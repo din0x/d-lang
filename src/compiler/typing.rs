@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use super::{
     parser::{
@@ -80,23 +80,51 @@ struct TypeAndScopeInfo {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Scope {
-    vars: Rc<RefCell<HashMap<Box<str>, Type>>>,
+pub struct Scope(Rc<RefCell<ScopeContent>>);
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ScopeContent {
+    parent: Option<Scope>,
+    vars: HashMap<Box<str>, Type>,
 }
 
 impl Scope {
     pub fn new() -> Scope {
-        Scope {
-            vars: Rc::new(RefCell::new(HashMap::new())),
+        Scope(Rc::new(RefCell::new(ScopeContent {
+            parent: None,
+            vars: HashMap::new(),
+        })))
+    }
+
+    fn with_parent(parent: &Scope) -> Scope {
+        Scope(Rc::new(RefCell::new(ScopeContent {
+            parent: Some(parent.clone()),
+            vars: HashMap::new(),
+        })))
+    }
+
+    fn get_scope(&self, name: &Box<str>) -> Option<Scope> {
+        if (*self.0).borrow().vars.contains_key(name) {
+            return Some(self.clone());
         }
+
+        if let Some(scope) = (*self.0).borrow().parent.clone() {
+            return scope.borrow().get_scope(name);
+        }
+
+        None
     }
 
     fn declare(&mut self, name: Box<str>, value_type: Type) {
-        self.vars.borrow_mut().insert(name, value_type);
+        self.0.borrow_mut().vars.insert(name, value_type);
     }
 
     fn lookup(&self, name: &Box<str>) -> Option<Type> {
-        self.vars.borrow().get(name).map(|x| *x)
+        (*self.get_scope(name)?.0)
+            .borrow()
+            .vars
+            .get(name)
+            .map(|x| *x)
     }
 }
 
@@ -141,7 +169,7 @@ fn get_type_if_else(
 }
 
 fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
-    get_type(&block.content, scope)
+    get_type(&block.content, &mut Scope::with_parent(scope))
 }
 
 fn get_type_var_declaration(
