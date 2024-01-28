@@ -4,7 +4,7 @@ mod typing;
 
 use std::fmt::Display;
 
-pub use parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, IfExpr, VariableDeclaration};
+pub use parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, IfExpr, VariableDeclaration, Block};
 
 pub use typing::Scope;
 
