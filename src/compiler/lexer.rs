@@ -6,6 +6,7 @@ pub fn parse_tokens<'a>(text: &str) -> Vec<Token> {
         parse_number,
         parse_string,
         parse_operator,
+        parse_punctuation,
         parse_parenthesis,
         parse_illegal,
     ];
@@ -48,8 +49,9 @@ pub struct Token {
 pub enum TokenKind {
     Illegal(char),
     Eof,
-    Keyword(Keyword),
     Operator(Operator),
+    Punctuation(Punctuation),
+    Keyword(Keyword),
     Identifier(Box<str>),
     Int(i64),
     String(Box<str>),
@@ -67,6 +69,17 @@ impl Display for TokenKind {
             Self::Int(i) => i.to_string(),
             Self::String(s) => format!(r#""{}""#, s),
             Self::Operator(op) => format!("{}", op),
+            Self::Punctuation(x) => {
+                let mut s = None;
+                for p in PUNCTUATION {
+                    if p.1 == *x {
+                        s = Some(p.0);
+                        break;
+                    }
+                }
+
+                s.expect("Unexpected punctuation").into()
+            }
             Self::Keyword(keyword) => format!("{}", keyword),
             Self::Identifier(iden) => {
                 let s: String;
@@ -100,6 +113,13 @@ pub enum Operator {
     More,
     MoreOrEqual,
     Assignment,
+}
+
+const PUNCTUATION: &[(char, Punctuation)] = &[(';', Punctuation::Semicolon)];
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Punctuation {
+    Semicolon,
 }
 
 impl Display for Operator {
@@ -289,6 +309,23 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
             location: position,
         },
     })
+}
+
+fn parse_punctuation(lexer: &mut LexerData) -> Option<Token> {
+    for c in PUNCTUATION {
+        if c.0 == lexer.current() {
+            lexer.pop();
+            return Some(Token {
+                kind: TokenKind::Punctuation(c.1),
+                info: TokenInfo {
+                    length: 1,
+                    location: lexer.position,
+                },
+            });
+        }
+    }
+
+    None
 }
 
 fn parse_parenthesis(lexer: &mut LexerData) -> Option<Token> {
