@@ -1,6 +1,8 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::compiler::{Assignment, BinOperator, Expr, ExprKind, IfExpr, VariableDeclaration};
+use crate::compiler::{
+    Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, VariableDeclaration,
+};
 
 pub fn run(expr: Expr, scope: &mut Scope) -> Value {
     clone_rc_value(eval(expr, scope))
@@ -15,7 +17,7 @@ fn eval(expr: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
         ExprKind::Var(expr) => eval_var(expr, scope),
         ExprKind::Assignment(expr) => eval_assignment(*expr, scope),
-        ExprKind::Block(expr) => eval(*expr.content, scope),
+        ExprKind::Block(expr) => eval_block(*expr, scope),
         ExprKind::IfExpr(expr) => eval_if_expr(*expr, scope),
     }
 }
@@ -191,6 +193,19 @@ fn eval_assignment(assignment: Assignment, scope: &mut Scope) -> Rc<RefCell<Valu
     let right = eval(assignment.right, scope);
 
     *(*left).borrow_mut() = clone_rc_value(right);
+
+    Rc::new(RefCell::new(Value::Unit))
+}
+
+fn eval_block(expr: Block, scope: &mut Scope) -> Rc<RefCell<Value>> {
+    let mut scope = Scope::new(Some(scope.clone()));
+    for expr in Vec::from(expr.content) {
+        eval(expr, &mut scope);
+    }
+
+    if let Some(tail) = expr.tail {
+        return eval(tail, &mut scope);
+    }
 
     Rc::new(RefCell::new(Value::Unit))
 }

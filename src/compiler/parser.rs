@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::compiler::lexer::Operator;
 
-use super::lexer::{Keyword, Token, TokenKind};
+use super::lexer::{Keyword, Punctuation, Token, TokenKind};
 
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_if_else,
@@ -37,7 +37,7 @@ pub enum ExprKind {
     VariableDeclaration(VariableDeclaration),
     Assignment(Box<Assignment>),
     IfExpr(Box<IfExpr>),
-    Block(Block),
+    Block(Box<Block>),
     Var(Box<str>),
     Int(i64),
     String(Box<str>),
@@ -52,7 +52,8 @@ pub struct IfExpr {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Block {
-    pub content: Box<Expr>,
+    pub content: Box<[Expr]>,
+    pub tail: Option<Expr>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -294,7 +295,22 @@ fn parse_block(parser: &mut ParserData) -> Expr {
         parser.pop();
     }
 
-    let expr = parse_expr(parser);
+    let mut content = vec![];
+    let mut tail = None;
+    while parser.current().kind != TokenKind::RSquirly {
+        let expr = parse_expr(parser);
+        match parser.current().kind {
+            TokenKind::Punctuation(Punctuation::Semicolon) => {
+                content.push(expr);
+                parser.pop();
+            }
+            TokenKind::RSquirly => {
+                tail = Some(expr);
+                break;
+            }
+            _ => break,
+        }
+    }
 
     let end;
     if parser.current().kind != TokenKind::RSquirly {
@@ -314,9 +330,10 @@ fn parse_block(parser: &mut ParserData) -> Expr {
     }
 
     Expr {
-        kind: ExprKind::Block(Block {
-            content: Box::new(expr),
-        }),
+        kind: ExprKind::Block(Box::new(Block {
+            content: content.into_boxed_slice(),
+            tail,
+        })),
         info: ExprInfo {
             position,
             length: end - position,

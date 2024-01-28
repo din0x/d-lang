@@ -169,7 +169,18 @@ fn get_type_if_else(
 }
 
 fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
-    get_type(&block.content, &mut Scope::with_parent(scope))
+    for expr in block.content.iter() {
+        // TODO: Require value to be ()
+    }
+
+    if let Some(ref tail) = block.tail {
+        return get_type(tail, &mut Scope::with_parent(scope));
+    }
+
+    Ok(TypeAndScopeInfo {
+        tp: Type::Unit,
+        scope: None,
+    })
 }
 
 fn get_type_var_declaration(
