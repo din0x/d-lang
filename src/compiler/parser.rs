@@ -64,6 +64,12 @@ pub enum UnaryOperator {
     Not,
 }
 
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", UNARY_OPERATORS.iter().find(|x| x.1 == *self).expect("Unexpected unary operator").0)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct IfExpr {
     pub condition: Expr,
