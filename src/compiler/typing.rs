@@ -2,8 +2,8 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc:
 
 use super::{
     parser::{
-        Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr,
-        VariableDeclaration,
+        Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
+        UnaryOperator, VariableDeclaration,
     },
     Error, ErrorKind, TypeMissmatch,
 };
@@ -34,6 +34,7 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
             Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
         }
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info, scope),
+        ExprKind::Unary(unary) => get_type_unary_expr(unary, expr.info, scope),
         ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
         ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
         ExprKind::IfExpr(if_expr) => get_type_if_else(if_expr, expr.info, scope),
@@ -236,6 +237,20 @@ fn get_type_bin_expr(
         (Err(err), _) => Err(err),
         (_, Err(err)) => Err(err),
     }
+}
+
+fn get_type_unary_expr(expr: &UnaryExpr, info: ExprInfo, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
+    use Type::*;
+    use UnaryOperator::*;
+
+    let t = match (expr.op, get_type(&expr.expr, scope)?.tp) {
+        (Plus, Int) => Int,
+        (Minus, Int) => Int,
+        (Not, Bool) => Bool,
+        (op, t) => return Err(Error::new(ErrorKind::UnaryOperatorUsage(op, t), info)),
+    };
+
+    Ok(TypeAndScopeInfo { tp: t, scope: None })
 }
 
 fn get_bin_expr_result_type(
