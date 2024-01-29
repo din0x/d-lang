@@ -170,7 +170,7 @@ fn get_type_if_else(
 }
 
 fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
-    for expr in block.content.iter() {
+    for _expr in block.content.iter() {
         // TODO: Require value to be ()
     }
 
