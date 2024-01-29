@@ -106,6 +106,7 @@ pub enum Operator {
     Minus,
     Star,
     Slash,
+    Not,
     Equal,
     NotEqual,
     Less,
@@ -136,6 +137,7 @@ impl Display for Operator {
             Self::More => ">",
             Self::MoreOrEqual => ">=",
             Self::Assignment => "=",
+            Self::Not => "!",
         };
 
         write!(f, "{}", s)
@@ -266,6 +268,7 @@ fn parse_string(lexer: &mut LexerData) -> Option<Token> {
 
 fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
     let operators = [
+        ("!", Operator::Not),
         ("+", Operator::Plus),
         ("-", Operator::Minus),
         ("*", Operator::Star),
