@@ -5,15 +5,13 @@ mod typing;
 use std::fmt::Display;
 
 pub use parser::{
-    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, VariableDeclaration,
+    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
+    VariableDeclaration,
 };
 
 pub use typing::Scope;
 
-use self::{
-    parser::{UnaryOperator, UnexpectedToken},
-    typing::Type,
-};
+use self::{parser::UnexpectedToken, typing::Type};
 
 pub fn compile(code: &str, scope: Scope) -> Result<Expr, Error> {
     let tokens = lexer::parse_tokens(code);
