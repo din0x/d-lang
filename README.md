@@ -11,6 +11,7 @@ Make sure you have installed
 1. Clone the repo 
 ```sh
 git clone https://github.com/din0x/d-lang.git
+cd d-lang
 ```
 2. Build with `cargo`
 ```sh
