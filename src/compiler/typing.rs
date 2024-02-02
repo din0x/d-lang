@@ -23,6 +23,7 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
         },
         ExprKind::Int(_) => Ok(Type::Int.into()),
         ExprKind::String(_) => Ok(Type::String.into()),
+        ExprKind::Bool(_) => Ok(Type::Bool.into()),
         ExprKind::Var(name) => {
             if let Some(t) = scope.lookup(name) {
                 return Ok(TypeAndScopeInfo {

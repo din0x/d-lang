@@ -13,6 +13,7 @@ fn eval(expr: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
     match expr.kind {
         ExprKind::IllegalExpr(_) => panic!("Illegal exprassion"),
         ExprKind::Int(i) => Rc::new(RefCell::new(Value::Int(i))),
+        ExprKind::Bool(b) => Rc::new(RefCell::new(Value::Bool(b))),
         ExprKind::String(s) => Rc::new(RefCell::new(Value::String(s.clone()))),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::Unary(unary) => eval_unary(*unary, scope),
