@@ -228,17 +228,25 @@ fn eval_unary(expr: UnaryExpr, scope: &mut Scope) -> Rc<RefCell<Value>> {
 }
 
 fn eval_if_expr(expr: IfExpr, scope: &mut Scope) -> Rc<RefCell<Value>> {
-    match clone_rc_value(eval(expr.condition, scope)) {
-        Value::Bool(condition) => {
-            return if condition {
-                eval(expr.block, scope)
-            } else {
-                match expr.else_expr {
-                    Some(block) => eval(block, scope),
-                    None => Rc::new(RefCell::new(Value::Unit)),
-                }
-            };
-        }
-        x => panic!("Condition was {}", x),
+    let result = clone_rc_value(eval(expr.condition, scope));
+    let Value::Bool(condition) = result else {
+        panic!("condition was {}", result)
+    };
+
+    let mut result;
+    let has_else_block = expr.else_expr.is_some();
+    if condition {
+        result = eval(expr.block, scope);
+    } else {
+        match expr.else_expr {
+            Some(else_block) => result = eval(else_block, scope),
+            None => result = Rc::new(RefCell::new(Value::Unit)),
+        };
     }
+
+    if !has_else_block {
+        result = Rc::new(RefCell::new(Value::Unit));
+    }
+
+    result
 }
