@@ -42,6 +42,7 @@ pub enum ExprKind {
     Block(Box<Block>),
     Var(Box<str>),
     Int(i64),
+    Bool(bool),
     String(Box<str>),
 }
 
@@ -507,6 +508,7 @@ fn parse_primary(parser: &mut ParserData) -> Expr {
         kind = match current.kind {
             TokenKind::String(ref string) => ExprKind::String(string.clone()),
             TokenKind::Int(int) => ExprKind::Int(int),
+            TokenKind::Bool(b) => ExprKind::Bool(b),
             TokenKind::Identifier(ref name) => ExprKind::Var(name.clone()),
             TokenKind::LSquirly => return parse_block(parser),
             _ => return parse_lower_level(parser),
