@@ -53,6 +53,7 @@ pub enum TokenKind {
     Punctuation(Punctuation),
     Keyword(Keyword),
     Identifier(Box<str>),
+    Bool(bool),
     Int(i64),
     String(Box<str>),
     LParen,
@@ -90,6 +91,7 @@ impl Display for TokenKind {
                 }
                 s
             }
+            Self::Bool(b) => (if *b { "true" } else { "false" }).into(),
             Self::LParen => "(".into(),
             Self::RParen => ")".into(),
             Self::LSquirly => "{".into(),
@@ -200,6 +202,11 @@ fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
     let mut token_kind = None;
 
     for keyword in KEYWORDS {
+        if text == "true" || text == "false" {
+            token_kind = Some(TokenKind::Bool(text == "true"));
+            break;
+        }
+
         if keyword.0 == text {
             token_kind = Some(TokenKind::Keyword(keyword.1));
             break;
