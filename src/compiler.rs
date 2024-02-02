@@ -4,7 +4,10 @@ mod typing;
 
 use std::fmt::Display;
 
-pub use parser::{Assignment, BinOperator, Expr, ExprInfo, ExprKind, IfExpr, VariableDeclaration, Block};
+pub use parser::{
+    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
+    VariableDeclaration,
+};
 
 pub use typing::Scope;
 
@@ -53,6 +56,7 @@ pub enum ErrorKind {
     IllagalChar(char),
     SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
+    UnaryOperatorUsage(UnaryOperator, Type),
     NoIdentifier(Box<str>),
     TypeMissmatch(TypeMissmatch),
     AssignmentToTemporary,
@@ -69,6 +73,9 @@ impl Display for ErrorKind {
         let s: String = match self {
             ErrorKind::BinOperatorUsage(op, l, r) => {
                 format!("Cannot use '{}' operator with '{}' and '{}'", op, l, r)
+            }
+            ErrorKind::UnaryOperatorUsage(op, t) => {
+                format!("Cannot use '{}' operator with '{}'", op, t)
             }
             ErrorKind::IllagalChar(c) => {
                 format!("Found unexpected character '{}'", c)

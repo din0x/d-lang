@@ -11,6 +11,7 @@ const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_comparison,
     parse_additive,
     parse_multipicative,
+    parse_unary,
     parse_parenthesis,
     parse_primary,
 ];
@@ -34,6 +35,7 @@ pub struct Expr {
 pub enum ExprKind {
     IllegalExpr(IllegalExpr),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
+    Unary(Box<UnaryExpr>),
     VariableDeclaration(VariableDeclaration),
     Assignment(Box<Assignment>),
     IfExpr(Box<IfExpr>),
@@ -41,6 +43,31 @@ pub enum ExprKind {
     Var(Box<str>),
     Int(i64),
     String(Box<str>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct UnaryExpr {
+    pub op: UnaryOperator,
+    pub expr: Expr,
+}
+
+const UNARY_OPERATORS: &[(Operator, UnaryOperator)] = &[
+    (Operator::Plus, UnaryOperator::Plus),
+    (Operator::Minus, UnaryOperator::Minus),
+    (Operator::Not, UnaryOperator::Not),
+];
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum UnaryOperator {
+    Plus,
+    Minus,
+    Not,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", UNARY_OPERATORS.iter().find(|x| x.1 == *self).expect("Unexpected unary operator").0)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -409,6 +436,36 @@ fn parse_assignment(parser: &mut ParserData) -> Expr {
     }
 
     left
+}
+
+fn parse_unary(parser: &mut ParserData) -> Expr {
+    if !UNARY_OPERATORS
+        .iter()
+        .map(|x| x.0)
+        .any(|x| TokenKind::Operator(x) == parser.current().kind)
+    {
+        return parse_lower_level(parser);
+    }
+    let position = parser.current().info.location;
+    let op = parser.pop().kind;
+
+    let expr = parse_lower_level(parser);
+    let expr_position = expr.info.position;
+
+    Expr {
+        kind: ExprKind::Unary(Box::new(UnaryExpr {
+            op: UNARY_OPERATORS
+                .iter()
+                .find(|x| TokenKind::Operator(x.0) == op)
+                .expect("")
+                .1,
+            expr,
+        })),
+        info: ExprInfo {
+            length: expr_position - position,
+            position,
+        },
+    }
 }
 
 fn parse_parenthesis(parser: &mut ParserData) -> Expr {

@@ -1,7 +1,8 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::compiler::{
-    Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, VariableDeclaration,
+    Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
+    VariableDeclaration,
 };
 
 pub fn run(expr: Expr, scope: &mut Scope) -> Value {
@@ -14,6 +15,7 @@ fn eval(expr: Expr, scope: &mut Scope) -> Rc<RefCell<Value>> {
         ExprKind::Int(i) => Rc::new(RefCell::new(Value::Int(i))),
         ExprKind::String(s) => Rc::new(RefCell::new(Value::String(s.clone()))),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
+        ExprKind::Unary(unary) => eval_unary(*unary, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
         ExprKind::Var(expr) => eval_var(expr, scope),
         ExprKind::Assignment(expr) => eval_assignment(*expr, scope),
@@ -208,6 +210,20 @@ fn eval_block(expr: Block, scope: &mut Scope) -> Rc<RefCell<Value>> {
     }
 
     Rc::new(RefCell::new(Value::Unit))
+}
+
+fn eval_unary(expr: UnaryExpr, scope: &mut Scope) -> Rc<RefCell<Value>> {
+    use UnaryOperator::*;
+    let value = eval(expr.expr, scope);
+
+    let value = match (expr.op, clone_rc_value(value)) {
+        (Plus, Value::Int(i)) => Value::Int(i),
+        (Minus, Value::Int(i)) => Value::Int(-i),
+        (Not, Value::Bool(b)) => Value::Bool(!b),
+        _ => panic!("Unexprected unary operator"),
+    };
+
+    Rc::new(RefCell::new(value))
 }
 
 fn eval_if_expr(expr: IfExpr, scope: &mut Scope) -> Rc<RefCell<Value>> {
