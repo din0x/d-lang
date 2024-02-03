@@ -167,7 +167,7 @@ impl Display for Keyword {
             }
         }
 
-        panic!("Keyword not found: {}", self)
+        panic!("keyword not found: {}", self)
     }
 }
 

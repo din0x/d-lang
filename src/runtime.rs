@@ -15,7 +15,7 @@ pub fn run(expr: Expr, scope: &mut Scope) -> Value {
 
 fn eval(expr: Expr, scope: &mut Scope) -> EvalResult {
     match expr.kind {
-        ExprKind::IllegalExpr(_) => panic!("Illegal exprassion"),
+        ExprKind::IllegalExpr(_) => panic!("illegal exprassion"),
         ExprKind::Int(i) => EvalResult::new(Value::Int(i)),
         ExprKind::Bool(b) => EvalResult::new(Value::Bool(b)),
         ExprKind::String(s) => EvalResult::new(Value::String(s.clone())),
@@ -55,7 +55,7 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Eva
         (Equal, Bool(b0), Bool(b1)) => Bool(b0 == b1),
         (NotEqual, Bool(b0), Bool(b1)) => Bool(b0 != b1),
         (_, left, right) => panic!(
-            "Cannot use '{}' operator with '{}' and  '{}'",
+            "cannot use '{}' operator with '{}' and  '{}'",
             op,
             get_type(&left),
             get_type(&right)

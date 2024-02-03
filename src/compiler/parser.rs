@@ -86,7 +86,7 @@ macro_rules! generate_match_patterns {
             $bind.1
         }
         else {
-            dbg!("Operator didn't match??? {}", $at);
+            dbg!("operator didn't match??? {}", $at);
             panic!()
         }};
     ($at:expr, $bind:expr, $($tl:expr),+) => (
