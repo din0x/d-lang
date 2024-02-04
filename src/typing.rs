@@ -1,15 +1,14 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
-use super::{
-    parser::{
-        Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
-        UnaryOperator, VariableDeclaration,
-    },
-    Error, ErrorKind, TypeMissmatch,
+use crate::error::{Error, ErrorKind, TypeMissmatch};
+
+use super::ast::{
+    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
+    UnaryOperator, VariableDeclaration,
 };
 
-pub fn is_valid(expr: &Expr, mut scope: Scope) -> Result<(), Error> {
-    get_type(expr, &mut scope)?;
+pub fn is_valid(expr: &Expr, scope: &mut Scope) -> Result<(), Error> {
+    get_type(expr, scope)?;
     Ok(())
 }
 
@@ -34,7 +33,7 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
 
             Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
         }
-        ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, &l, &r, expr.info, scope),
+        ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, l, r, expr.info, scope),
         ExprKind::Unary(unary) => get_type_unary_expr(unary, expr.info, scope),
         ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
         ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
@@ -49,13 +48,14 @@ pub enum Type {
     Int,
     String,
     Bool,
+    #[allow(clippy::enum_variant_names)]
     _Type,
 }
 
-impl Into<TypeAndScopeInfo> for Type {
-    fn into(self) -> TypeAndScopeInfo {
+impl From<Type> for TypeAndScopeInfo {
+    fn from(val: Type) -> Self {
         TypeAndScopeInfo {
-            tp: self,
+            tp: val,
             scope: None,
         }
     }
@@ -105,7 +105,7 @@ impl Scope {
         })))
     }
 
-    fn get_scope(&self, name: &Box<str>) -> Option<Scope> {
+    fn get_scope(&self, name: &str) -> Option<Scope> {
         if (*self.0).borrow().vars.contains_key(name) {
             return Some(self.clone());
         }
@@ -121,12 +121,8 @@ impl Scope {
         self.0.borrow_mut().vars.insert(name, value_type);
     }
 
-    fn lookup(&self, name: &Box<str>) -> Option<Type> {
-        (*self.get_scope(name)?.0)
-            .borrow()
-            .vars
-            .get(name)
-            .map(|x| *x)
+    fn lookup(&self, name: &str) -> Option<Type> {
+        (*self.get_scope(name)?.0).borrow().vars.get(name).copied()
     }
 }
 
@@ -159,15 +155,13 @@ fn get_type_if_else(
                     block.info,
                 ));
             }
-            return Ok(if_type);
+            Ok(if_type)
         }
-        None => {
-            return Ok(TypeAndScopeInfo {
-                tp: Type::Unit,
-                scope: None,
-            });
-        }
-    };
+        None => Ok(TypeAndScopeInfo {
+            tp: Type::Unit,
+            scope: None,
+        }),
+    }
 }
 
 fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
@@ -205,7 +199,7 @@ fn get_type_assignment(
 
     let right = get_type(&assignment.right, scope)?;
 
-    if left.scope == None {
+    if left.scope.is_none() {
         return Err(Error::new(ErrorKind::AssignmentToTemporary, info));
     }
 
@@ -240,7 +234,11 @@ fn get_type_bin_expr(
     }
 }
 
-fn get_type_unary_expr(expr: &UnaryExpr, info: ExprInfo, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_unary_expr(
+    expr: &UnaryExpr,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
     use Type::*;
     use UnaryOperator::*;
 

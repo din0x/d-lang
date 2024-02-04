@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-pub fn parse_tokens<'a>(text: &str) -> Vec<Token> {
+pub fn parse_tokens(text: &str) -> Vec<Token> {
     let token_parsers = [
         parse_keyword_or_identifier,
         parse_number,
@@ -83,13 +83,11 @@ impl Display for TokenKind {
             }
             Self::Keyword(keyword) => format!("{}", keyword),
             Self::Identifier(iden) => {
-                let s: String;
                 if iden.is_empty() {
-                    s = "IDENTIFIER".into()
+                    "IDENTIFIER".to_string()
                 } else {
-                    s = iden.to_string().into();
+                    iden.to_string()
                 }
-                s
             }
             Self::Bool(b) => (if *b { "true" } else { "false" }).into(),
             Self::LParen => "(".into(),
@@ -167,7 +165,7 @@ impl Display for Keyword {
             }
         }
 
-        panic!("keyword not found: {}", self)
+        panic!("keyword not found")
     }
 }
 

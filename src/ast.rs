@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::compiler::lexer::{Operator, TokenKind};
+use crate::lexer::{Operator, TokenKind};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Expr {
@@ -50,7 +50,7 @@ impl Display for UnaryOperator {
             UNARY_OPERATORS
                 .iter()
                 .find(|x| x.1 == *self)
-                .expect("Unexpected unary operator")
+                .expect("unexpected unary operator")
                 .0
         )
     }

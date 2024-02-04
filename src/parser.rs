@@ -1,10 +1,9 @@
-mod expr;
+use crate::ast::{
+    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
+    UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
+};
 
-pub use expr::*;
-
-use crate::compiler::lexer::Operator;
-
-use super::lexer::{Keyword, Punctuation, Token, TokenKind};
+use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
 
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_if_else,
@@ -265,7 +264,7 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
         if equal_sign.kind == TokenKind::Operator(Operator::Assignment) {
             return Expr {
                 kind: ExprKind::VariableDeclaration(VariableDeclaration {
-                    name: iden.into(),
+                    name: iden,
                     value: Box::new(expr),
                 }),
                 info: ExprInfo {
@@ -308,7 +307,7 @@ fn parse_assignment(parser: &mut ParserData) -> Expr {
         let position = right.info.position;
 
         left = Expr {
-            kind: ExprKind::Assignment(Box::new(Assignment { left: left, right })),
+            kind: ExprKind::Assignment(Box::new(Assignment { left, right })),
             info: ExprInfo {
                 position: start,
                 length: position - start,
@@ -366,7 +365,7 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
 
     let unexpected_token = parser.pop();
 
-    return Expr {
+    Expr {
         kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
             unexpacted: unexpected_token.kind,
             expected: None,
@@ -375,7 +374,7 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
             length: unexpected_token.info.length,
             position: unexpected_token.info.location,
         },
-    };
+    }
 }
 
 fn parse_primary(parser: &mut ParserData) -> Expr {

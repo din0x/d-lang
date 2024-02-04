@@ -1,13 +1,7 @@
-mod scope;
-mod value;
-
-use crate::compiler::{
+use super::ast::{
     Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
     VariableDeclaration,
 };
-use value::*;
-
-pub use scope::*;
 
 pub fn run(expr: Expr, scope: &mut Scope) -> Value {
     eval(expr, scope).get_value()
@@ -132,4 +126,142 @@ fn eval_if_expr(expr: IfExpr, scope: &mut Scope) -> EvalResult {
     }
 
     result
+}
+
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct EvalResult {
+    pub data: Rc<RefCell<Value>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Value {
+    Int(i64),
+    String(Box<str>),
+    Bool(bool),
+    _Type(Type),
+    Unit,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Type {
+    Int,
+    String,
+    Bool,
+    #[allow(clippy::enum_variant_names)]
+    Type,
+    Unit,
+}
+
+pub fn get_type(v: &Value) -> Type {
+    match v {
+        Value::Int(_) => Type::Int,
+        Value::String(_) => Type::String,
+        Value::Bool(_) => Type::Bool,
+        Value::_Type(_) => Type::Type,
+        Value::Unit => Type::Unit,
+    }
+}
+
+impl EvalResult {
+    pub fn unit() -> EvalResult {
+        Self::new(Value::Unit)
+    }
+
+    pub fn new(value: Value) -> EvalResult {
+        EvalResult {
+            data: Rc::new(RefCell::new(value)),
+        }
+    }
+
+    pub fn get_value(&self) -> Value {
+        let binding = (*self.data).borrow().clone();
+        let data: &Value = binding.borrow();
+        data.clone()
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Value::Int(i) => i.to_string(),
+            Value::String(s) => format!(r#""{}""#, s),
+            Value::Bool(b) => b.to_string(),
+            Value::_Type(_) => "Type".into(),
+            Value::Unit => "()".into(),
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Type::Int => "Int",
+            Type::String => "String",
+            Type::Bool => "Bool",
+            Type::Type => "Type",
+            Type::Unit => "Unit",
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Scope(Rc<RefCell<ScopeContent>>);
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ScopeContent {
+    parent: Option<Scope>,
+    vars: HashMap<Box<str>, EvalResult>,
+}
+
+impl Scope {
+    pub fn new(parent: Option<Scope>) -> Scope {
+        Scope(Rc::new(RefCell::new(ScopeContent {
+            parent,
+            vars: HashMap::new(),
+        })))
+    }
+
+    pub fn declare(&mut self, name: Box<str>, value: Value) {
+        self.0
+            .as_ref()
+            .borrow_mut()
+            .vars
+            .insert(name, EvalResult::new(value));
+    }
+
+    fn get_scope(&self, name: &str) -> Option<Scope> {
+        if self.0.as_ref().borrow().vars.contains_key(name) {
+            return Some(self.clone());
+        }
+
+        if let Some(ref parent) = self.0.as_ref().borrow().parent {
+            return parent.get_scope(name);
+        }
+
+        None
+    }
+
+    pub fn lookup(&self, name: &str) -> EvalResult {
+        self.get_scope(name)
+            .unwrap_or_else(|| panic!("cannot find '{}' in current scope", name))
+            .0
+            .as_ref()
+            .borrow()
+            .vars
+            .get(name)
+            .unwrap_or_else(|| panic!("cannot find '{}' in current scope", name))
+            .clone()
+    }
+}
+
+impl Default for Scope {
+    fn default() -> Self {
+        Scope::new(None)
+    }
 }
