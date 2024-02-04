@@ -146,6 +146,7 @@ impl Display for Operator {
 
 const KEYWORDS: &[(&str, Keyword)] = &[
     ("let", Keyword::Let),
+    ("fn", Keyword::Fn),
     ("if", Keyword::If),
     ("else", Keyword::Else),
 ];
@@ -153,6 +154,7 @@ const KEYWORDS: &[(&str, Keyword)] = &[
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Keyword {
     Let,
+    Fn,
     If,
     Else,
 }
