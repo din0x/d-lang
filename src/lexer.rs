@@ -117,7 +117,8 @@ pub enum Operator {
     Arrow,
 }
 
-const PUNCTUATION: &[(char, Punctuation)] = &[(';', Punctuation::Semicolon), (':', Punctuation::Colon)];
+const PUNCTUATION: &[(char, Punctuation)] =
+    &[(';', Punctuation::Semicolon), (':', Punctuation::Colon)];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Punctuation {
@@ -290,7 +291,7 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
         (">", Operator::More),
         (">=", Operator::More),
         ("=", Operator::Assignment),
-        ("->", Operator::Arrow)
+        ("->", Operator::Arrow),
     ];
 
     let position = lexer.position;
