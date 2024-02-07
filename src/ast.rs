@@ -28,7 +28,7 @@ pub enum ExprKind {
 pub struct Function {
     pub name: Box<str>,
     pub args: Box<[Arg]>,
-    pub t: Expr,
+    pub t: Option<Expr>,
     pub body: Expr,
 }
 
