@@ -3,8 +3,8 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc:
 use crate::error::{Error, ErrorKind, TypeMissmatch};
 
 use super::ast::{
-    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
-    UnaryOperator, VariableDeclaration,
+    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, Function, IfExpr, IllegalExpr,
+    UnaryExpr, UnaryOperator, VariableDeclaration,
 };
 
 pub fn is_valid(expr: &Expr, scope: &mut Scope) -> Result<(), Error> {
@@ -33,6 +33,7 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
 
             Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
         }
+        ExprKind::Function(func) => get_type_func(func, scope),
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, l, r, expr.info, scope),
         ExprKind::Unary(unary) => get_type_unary_expr(unary, expr.info, scope),
         ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
@@ -42,14 +43,27 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
     Unit,
     Int,
     String,
     Bool,
+    Func(Box<Func>),
     #[allow(clippy::enum_variant_names)]
     _Type,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Func {
+    params: Box<[Param]>,
+    output: Type,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Param {
+    name: Box<str>,
+    r#type: Type,
 }
 
 impl From<Type> for TypeAndScopeInfo {
@@ -67,6 +81,14 @@ impl Display for Type {
             Type::Int => "Int",
             Type::String => "String",
             Type::Bool => "Bool",
+            Type::Func(ref func) => {
+                let mut args = String::new();
+                for arg in func.params.iter() {
+                    args += format!("{}, ", arg.r#type).as_str();
+                }
+
+                return write!(f, "fn({}) -> {}", args, func.output);
+            }
             Type::_Type => "Type",
             Type::Unit => "Unit",
         };
@@ -122,8 +144,67 @@ impl Scope {
     }
 
     fn lookup(&self, name: &str) -> Option<Type> {
-        (*self.get_scope(name)?.0).borrow().vars.get(name).copied()
+        (*self.get_scope(name)?.0).borrow().vars.get(name).cloned()
     }
+}
+
+fn get_type_func(func: &Function, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
+    let mut error = Error { errors: vec![] };
+    let mut inner = Scope::with_parent(scope);
+    let mut params = vec![];
+
+    for arg in func.args.iter() {
+        let t = match get_type(&arg.r#type, scope) {
+            Ok(t) => t.tp,
+            Err(err) => {
+                error = Error::from_two(error, err);
+                continue;
+            }
+        };
+
+        params.push(Param {
+            name: arg.name.clone(),
+            r#type: t.clone(),
+        });
+        inner.declare(arg.name.clone(), t);
+    }
+
+    let expected = func
+        .r#type
+        .as_ref()
+        .map(|x| get_type(x, scope))
+        .unwrap_or(Ok(Type::Unit.into()));
+    let output = get_type(&func.body, &mut inner);
+
+    match (expected, output.clone()) {
+        (Ok(expected), Ok(output)) => {
+            if expected.tp != output.tp {
+                error = Error::from_two(
+                    error,
+                    Error::new(
+                        ErrorKind::TypeMissmatch(TypeMissmatch {
+                            expected: expected.tp,
+                            found: output.tp,
+                        }),
+                        func.body.info,
+                    ),
+                );
+            }
+        }
+        (Err(err), Ok(_)) => error = Error::from_two(error, err),
+        (Ok(_), Err(err)) => error = Error::from_two(error, err),
+        (Err(err0), Err(err1)) => error = Error::from_two(error, Error::from_two(err0, err1)),
+    }
+
+    if !error.errors.is_empty() {
+        return Err(error);
+    }
+
+    Ok(Type::Func(Box::new(Func {
+        output: output.expect("output type should be ok").tp,
+        params: params.into_boxed_slice(),
+    }))
+    .into())
 }
 
 fn get_type_if_else(
