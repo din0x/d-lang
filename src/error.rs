@@ -26,7 +26,7 @@ pub enum ErrorKind {
     AssignmentToTemporary,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TypeMissmatch {
     pub expected: Type,
     pub found: Type,
