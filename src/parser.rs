@@ -1,6 +1,6 @@
 use crate::ast::{
-    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
-    UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
+    Arg, Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, Function, IfExpr, IllegalExpr,
+    UnaryExpr, UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
 };
 
 use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
@@ -8,6 +8,7 @@ use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_if_else,
     parse_variable_declaration,
+    parse_function,
     parse_assignment,
     parse_comparison,
     parse_additive,
@@ -297,6 +298,109 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
     }
 }
 
+fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, ExprInfo)> {
+    if parser.current().kind != TokenKind::LParen {
+        return Err((
+            UnexpectedToken {
+                unexpacted: parser.current().kind.clone(),
+                expected: Some(TokenKind::LParen),
+            },
+            ExprInfo {
+                position: parser.current().info.location,
+                length: parser.current().info.length,
+            },
+        ));
+    }
+
+    parser.pop();
+
+    let mut args = vec![];
+
+    while parser.current().kind != TokenKind::RParen {
+        let info = parser.current().info;
+        let TokenKind::Identifier(name) = parser.current().kind.clone() else {
+            return Err((
+                UnexpectedToken {
+                    unexpacted: parser.current().kind.clone(),
+                    expected: Some(TokenKind::Identifier("".into())),
+                },
+                ExprInfo {
+                    position: parser.current().info.location,
+                    length: parser.current().info.length,
+                },
+            ));
+        };
+
+        parser.pop();
+
+        if parser.current().kind != TokenKind::Punctuation(Punctuation::Colon) {
+            return Err((
+                UnexpectedToken {
+                    unexpacted: parser.current().kind.clone(),
+                    expected: Some(TokenKind::Punctuation(Punctuation::Colon)),
+                },
+                ExprInfo {
+                    position: parser.current().info.location,
+                    length: parser.current().info.length,
+                },
+            ));
+        }
+        parser.pop();
+
+        let r#type = parse_expr(parser);
+
+        args.push(Arg {
+            name: name,
+            r#type,
+            info: ExprInfo {
+                position: info.location,
+                length: info.length,
+            },
+        });
+    }
+
+    parser.pop();
+    Ok(args.into_boxed_slice())
+}
+
+fn parse_function(parser: &mut ParserData) -> Expr {
+    if parser.current().kind != TokenKind::Keyword(Keyword::Fn) {
+        return parse_lower_level(parser);
+    }
+
+    let position = parser.current().info.location;
+    parser.pop();
+
+    let args = parse_args(parser);
+
+    let r#type = if parser.current().kind == TokenKind::Operator(Operator::Arrow) {
+        parser.pop();
+        Some(parse_expr(parser))
+    } else {
+        None
+    };
+
+    let body = parse_block(parser);
+
+    let args = match args {
+        Ok(args) => args,
+        Err(err) => {
+            return Expr {
+                kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(err.0)),
+                info: ExprInfo {
+                    position: err.1.position,
+                    length: err.1.length,
+                },
+            }
+        }
+    };
+
+    let length = body.info.position + body.info.length - position;
+    Expr {
+        kind: ExprKind::Function(Box::new(Function { args, r#type, body })),
+        info: ExprInfo { position, length },
+    }
+}
 fn parse_assignment(parser: &mut ParserData) -> Expr {
     let mut left = parse_lower_level(parser);
     let start = left.info.position;
