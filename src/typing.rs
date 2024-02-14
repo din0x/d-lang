@@ -33,16 +33,15 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
 
             Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
         }
-        ExprKind::Function(func) => get_type_func(func, scope),
+        ExprKind::Function(func) => get_type_func(func, expr.info, scope),
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, l, r, expr.info, scope),
         ExprKind::Unary(unary) => get_type_unary_expr(unary, expr.info, scope),
-        ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
         ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
         ExprKind::IfExpr(if_expr) => get_type_if_else(if_expr, expr.info, scope),
         ExprKind::Block(block) => get_type_block(block, scope),
+        ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
     }
 }
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
     Unit,
@@ -51,9 +50,8 @@ pub enum Type {
     Bool,
     Func(Box<Func>),
     #[allow(clippy::enum_variant_names)]
-    _Type,
+    Type(Option<Box<Self>>),
 }
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Func {
     params: Box<[Param]>,
@@ -89,7 +87,7 @@ impl Display for Type {
 
                 return write!(f, "fn({}) -> {}", args, func.output);
             }
-            Type::_Type => "Type",
+            Type::Type(_) => "Type",
             Type::Unit => "Unit",
         };
 
@@ -148,14 +146,25 @@ impl Scope {
     }
 }
 
-fn get_type_func(func: &Function, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_func(
+    func: &Function,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
     let mut error = Error { errors: vec![] };
     let mut inner = Scope::with_parent(scope);
     let mut params = vec![];
 
     for arg in func.args.iter() {
         let t = match get_type(&arg.r#type, scope) {
-            Ok(t) => t.tp,
+            Ok(t) => {
+                if let Type::Type(Some(t)) = t.tp {
+                    t.as_ref().clone()
+                } else {
+                    error = Error::from_two(error, Error::new(ErrorKind::TypeMissmatch(TypeMissmatch{expected: Type::Type(None), found: t.tp}), arg.info));
+                    continue;
+                }
+            },
             Err(err) => {
                 error = Error::from_two(error, err);
                 continue;
@@ -173,20 +182,33 @@ fn get_type_func(func: &Function, scope: &mut Scope) -> Result<TypeAndScopeInfo,
         .r#type
         .as_ref()
         .map(|x| get_type(x, scope))
-        .unwrap_or(Ok(Type::Unit.into()));
+        .unwrap_or(Ok(Type::Type(Some(Box::new(Type::Unit))).into()));
     let output = get_type(&func.body, &mut inner);
 
     match (expected, output.clone()) {
         (Ok(expected), Ok(output)) => {
-            if expected.tp != output.tp {
+            if let Type::Type(Some(expected)) = expected.tp {
+                if &output.tp != expected.as_ref() {
+                    error = Error::from_two(
+                        error,
+                        Error::new(
+                            ErrorKind::TypeMissmatch(TypeMissmatch {
+                                expected: expected.as_ref().clone(),
+                                found: output.tp,
+                            }),
+                            func.body.info,
+                        ),
+                    );
+                }
+            } else {
                 error = Error::from_two(
                     error,
                     Error::new(
                         ErrorKind::TypeMissmatch(TypeMissmatch {
-                            expected: expected.tp,
-                            found: output.tp,
+                            expected: Type::Type(None),
+                            found: expected.tp,
                         }),
-                        func.body.info,
+                        func.r#type.clone().map(|x| x.info).unwrap_or(info),
                     ),
                 );
             }
@@ -320,7 +342,7 @@ fn get_type_unary_expr(
     info: ExprInfo,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
-    use Type::*;
+    use Type::{Bool, Int};
     use UnaryOperator::*;
 
     let t = match (expr.op, get_type(&expr.expr, scope)?.tp) {
