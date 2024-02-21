@@ -79,13 +79,10 @@ impl Display for Type {
             Type::Int => "Int",
             Type::String => "String",
             Type::Bool => "Bool",
-            Type::Func(ref func) => {
-                let mut args = String::new();
-                for arg in func.params.iter() {
-                    args += format!("{}, ", arg.r#type).as_str();
-                }
+            Type::Func(func) => {
+                let s: Vec<String> = func.params.as_ref().iter().map(|x| format!("{}", x.r#type)).collect();
 
-                return write!(f, "fn({}) -> {}", args, func.output);
+                return write!(f, "fn({}) -> {}", s.join(", "), func.output);
             }
             Type::Type(_) => "Type",
             Type::Unit => "Unit",
@@ -116,6 +113,16 @@ impl Scope {
             parent: None,
             vars: HashMap::new(),
         })))
+    }
+
+    pub fn prelude(&mut self) {
+        ([
+            ("Int", Type::Int),
+            ("Bool", Type::Bool),
+            ("Unit", Type::Unit),
+            ("String", Type::String),
+        ])
+        .map(|x| self.declare(x.0.into(), Type::Type(Some(Box::new(x.1)))));
     }
 
     fn with_parent(parent: &Scope) -> Scope {
@@ -161,10 +168,19 @@ fn get_type_func(
                 if let Type::Type(Some(t)) = t.tp {
                     t.as_ref().clone()
                 } else {
-                    error = Error::from_two(error, Error::new(ErrorKind::TypeMissmatch(TypeMissmatch{expected: Type::Type(None), found: t.tp}), arg.info));
+                    error = Error::from_two(
+                        error,
+                        Error::new(
+                            ErrorKind::TypeMissmatch(TypeMissmatch {
+                                expected: Type::Type(None),
+                                found: t.tp,
+                            }),
+                            arg.info,
+                        ),
+                    );
                     continue;
                 }
-            },
+            }
             Err(err) => {
                 error = Error::from_two(error, err);
                 continue;
@@ -222,11 +238,15 @@ fn get_type_func(
         return Err(error);
     }
 
-    Ok(Type::Func(Box::new(Func {
-        output: output.expect("output type should be ok").tp,
-        params: params.into_boxed_slice(),
-    }))
-    .into())
+    scope.declare(
+        func.name.clone(),
+        Type::Func(Box::new(Func {
+            params: params.into_boxed_slice(),
+            output: output.unwrap().tp,
+        })),
+    );
+
+    Ok(Type::Unit.into())
 }
 
 fn get_type_if_else(
