@@ -9,7 +9,9 @@ use std::io::{stdin, stdout, Write};
 
 fn main() {
     let mut scope = typing::Scope::new();
+    scope.prelude();
     let mut runtime_scope = runtime::Scope::default();
+    runtime_scope.prelude();
 
     loop {
         print!("> ");
