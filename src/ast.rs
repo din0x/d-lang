@@ -26,6 +26,7 @@ pub enum ExprKind {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Function {
+    pub name: Box<str>,
     pub args: Box<[Arg]>,
     pub r#type: Option<Expr>,
     pub body: Expr,
