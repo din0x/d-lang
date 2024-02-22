@@ -21,6 +21,7 @@ pub enum ErrorKind {
     SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
     UnaryOperatorUsage(UnaryOperator, Type),
+    BadCall(Type),
     NoIdentifier(Box<str>),
     TypeMissmatch(TypeMissmatch),
     AssignmentToTemporary,
@@ -82,6 +83,9 @@ impl Display for ErrorKind {
                 };
 
                 s
+            }
+            ErrorKind::BadCall(t) => {
+                format!("Cannot call '{}'", t)
             }
             ErrorKind::NoIdentifier(name) => {
                 format!("Cannot find '{}' in current scope", name)
