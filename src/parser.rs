@@ -1,6 +1,6 @@
 use crate::ast::{
-    Arg, Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, Function, IfExpr, IllegalExpr,
-    UnaryExpr, UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
+    Arg, Assignment, BinOperator, Block, Call, Expr, ExprInfo, ExprKind, Function, IfExpr,
+    IllegalExpr, UnaryExpr, UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
 };
 
 use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
@@ -14,6 +14,7 @@ const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_additive,
     parse_multipicative,
     parse_unary,
+    parse_call,
     parse_parenthesis,
     parse_primary,
 ];
@@ -446,6 +447,7 @@ fn parse_function(parser: &mut ParserData) -> Expr {
         info: ExprInfo { position, length },
     }
 }
+
 fn parse_assignment(parser: &mut ParserData) -> Expr {
     let mut left = parse_lower_level(parser);
     let start = left.info.position;
@@ -495,6 +497,40 @@ fn parse_unary(parser: &mut ParserData) -> Expr {
             position,
         },
     }
+}
+
+fn parse_call(parser: &mut ParserData) -> Expr {
+    let mut expr = parse_lower_level(parser);
+
+    let position = expr.info.position;
+
+    while parser.current().kind == TokenKind::LParen {
+        parser.pop();
+
+        let mut args = vec![];
+
+        while parser.current().kind != TokenKind::RParen {
+            args.push(parse_expr(parser));
+
+            if parser.current().kind == TokenKind::Punctuation(Punctuation::Comma) {
+                parser.pop();
+            }
+        }
+
+        parser.pop();
+
+        let length = expr.info.position - position;
+
+        expr = Expr {
+            kind: ExprKind::Call(Box::new(Call {
+                expr,
+                args: args.into_boxed_slice(),
+            })),
+            info: ExprInfo { length, position },
+        }
+    }
+
+    expr
 }
 
 fn parse_parenthesis(parser: &mut ParserData) -> Expr {
