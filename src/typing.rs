@@ -80,7 +80,12 @@ impl Display for Type {
             Type::String => "String",
             Type::Bool => "Bool",
             Type::Func(func) => {
-                let s: Vec<String> = func.params.as_ref().iter().map(|x| format!("{}", x.r#type)).collect();
+                let s: Vec<String> = func
+                    .params
+                    .as_ref()
+                    .iter()
+                    .map(|x| format!("{}", x.r#type))
+                    .collect();
 
                 return write!(f, "fn({}) -> {}", s.join(", "), func.output);
             }

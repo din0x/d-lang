@@ -117,8 +117,11 @@ pub enum Operator {
     Arrow,
 }
 
-const PUNCTUATION: &[(char, Punctuation)] =
-    &[(';', Punctuation::Semicolon), (':', Punctuation::Colon), (',', Punctuation::Comma)];
+const PUNCTUATION: &[(char, Punctuation)] = &[
+    (';', Punctuation::Semicolon),
+    (':', Punctuation::Colon),
+    (',', Punctuation::Comma),
+];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Punctuation {

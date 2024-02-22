@@ -245,7 +245,12 @@ impl Display for Value {
             Value::String(s) => format!(r#""{}""#, s),
             Value::Bool(b) => b.to_string(),
             Value::Func(func) => {
-                let s: Vec<String> = func.args.as_ref().iter().map(|x| format!("{}", x.r#type)).collect();
+                let s: Vec<String> = func
+                    .args
+                    .as_ref()
+                    .iter()
+                    .map(|x| format!("{}", x.r#type))
+                    .collect();
 
                 return write!(f, "fn({}) -> {}", s.join(", "), func.output);
             }
@@ -299,7 +304,7 @@ impl Scope {
             ("Bool", Type::Bool),
             ("Unit", Type::Unit),
             ("String", Type::String),
-            ])
+        ])
         .map(|x| self.declare(x.0.into(), Value::Type(x.1)));
     }
 
