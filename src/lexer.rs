@@ -118,12 +118,13 @@ pub enum Operator {
 }
 
 const PUNCTUATION: &[(char, Punctuation)] =
-    &[(';', Punctuation::Semicolon), (':', Punctuation::Colon)];
+    &[(';', Punctuation::Semicolon), (':', Punctuation::Colon), (',', Punctuation::Comma)];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Punctuation {
     Semicolon,
     Colon,
+    Comma,
 }
 
 impl Display for Operator {
