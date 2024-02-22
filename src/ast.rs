@@ -13,6 +13,7 @@ pub enum ExprKind {
     IllegalExpr(IllegalExpr),
     Binary(BinOperator, Box<Expr>, Box<Expr>),
     Unary(Box<UnaryExpr>),
+    Call(Box<Call>),
     VariableDeclaration(VariableDeclaration),
     Function(Box<Function>),
     Assignment(Box<Assignment>),
@@ -22,6 +23,12 @@ pub enum ExprKind {
     Int(i64),
     Bool(bool),
     String(Box<str>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Call {
+    pub expr: Expr,
+    pub args: Box<[Expr]>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
