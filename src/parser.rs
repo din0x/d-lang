@@ -357,6 +357,25 @@ fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, E
                 length: info.length,
             },
         });
+
+        if parser.current().kind == TokenKind::RParen {
+            break;
+        }
+
+        if parser.current().kind != TokenKind::Punctuation(Punctuation::Comma) {
+            return Err((
+                UnexpectedToken {
+                    unexpacted: parser.current().kind.clone(),
+                    expected: Some(TokenKind::Punctuation(Punctuation::Colon)),
+                },
+                ExprInfo {
+                    position: parser.current().info.location,
+                    length: parser.current().info.length,
+                },
+            ));
+        }
+
+        parser.pop();
     }
 
     parser.pop();
@@ -371,6 +390,13 @@ fn parse_function(parser: &mut ParserData) -> Expr {
     let position = parser.current().info.location;
     parser.pop();
 
+    let name = if let TokenKind::Identifier(name) = parser.current().kind.clone() {
+        parser.pop();
+        Ok(name)
+    } else {
+        Err(parser.current().clone())
+    };
+
     let args = parse_args(parser);
 
     let r#type = if parser.current().kind == TokenKind::Operator(Operator::Arrow) {
@@ -381,6 +407,20 @@ fn parse_function(parser: &mut ParserData) -> Expr {
     };
 
     let body = parse_block(parser);
+
+    let Ok(name) = name else {
+        let err = name.err().unwrap();
+        return Expr {
+            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
+                unexpacted: err.kind.clone(),
+                expected: Some(TokenKind::Identifier("".into())),
+            })),
+            info: ExprInfo {
+                position: err.info.location,
+                length: err.info.length,
+            },
+        };
+    };
 
     let args = match args {
         Ok(args) => args,
@@ -397,7 +437,12 @@ fn parse_function(parser: &mut ParserData) -> Expr {
 
     let length = body.info.position + body.info.length - position;
     Expr {
-        kind: ExprKind::Function(Box::new(Function { args, r#type, body })),
+        kind: ExprKind::Function(Box::new(Function {
+            name,
+            args,
+            r#type,
+            body,
+        })),
         info: ExprInfo { position, length },
     }
 }
