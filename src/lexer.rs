@@ -114,13 +114,20 @@ pub enum Operator {
     More,
     MoreOrEqual,
     Assignment,
+    Arrow,
 }
 
-const PUNCTUATION: &[(char, Punctuation)] = &[(';', Punctuation::Semicolon)];
+const PUNCTUATION: &[(char, Punctuation)] = &[
+    (';', Punctuation::Semicolon),
+    (':', Punctuation::Colon),
+    (',', Punctuation::Comma),
+];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Punctuation {
     Semicolon,
+    Colon,
+    Comma,
 }
 
 impl Display for Operator {
@@ -138,6 +145,7 @@ impl Display for Operator {
             Self::MoreOrEqual => ">=",
             Self::Assignment => "=",
             Self::Not => "!",
+            Self::Arrow => "->",
         };
 
         write!(f, "{}", s)
@@ -146,6 +154,7 @@ impl Display for Operator {
 
 const KEYWORDS: &[(&str, Keyword)] = &[
     ("let", Keyword::Let),
+    ("fn", Keyword::Fn),
     ("if", Keyword::If),
     ("else", Keyword::Else),
 ];
@@ -153,6 +162,7 @@ const KEYWORDS: &[(&str, Keyword)] = &[
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Keyword {
     Let,
+    Fn,
     If,
     Else,
 }
@@ -285,6 +295,7 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
         (">", Operator::More),
         (">=", Operator::More),
         ("=", Operator::Assignment),
+        ("->", Operator::Arrow),
     ];
 
     let position = lexer.position;

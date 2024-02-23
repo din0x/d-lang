@@ -1,3 +1,5 @@
+use crate::ast::{Call, Function};
+
 use super::ast::{
     Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
     VariableDeclaration,
@@ -15,12 +17,33 @@ fn eval(expr: Expr, scope: &mut Scope) -> EvalResult {
         ExprKind::String(s) => EvalResult::new(Value::String(s.clone())),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::Unary(unary) => eval_unary(*unary, scope),
+        ExprKind::Call(expr) => eval_call(*expr, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
+        ExprKind::Function(f) => eval_func(*f, scope),
         ExprKind::Var(expr) => eval_var(expr, scope),
         ExprKind::Assignment(expr) => eval_assignment(*expr, scope),
         ExprKind::Block(expr) => eval_block(*expr, scope),
         ExprKind::IfExpr(expr) => eval_if_expr(*expr, scope),
     }
+}
+
+fn eval_call(call: Call, scope: &mut Scope) -> EvalResult {
+    let Value::Func(f) = eval(call.expr, scope).get_value() else {
+        unreachable!("type checker should ensure this is a function")
+    };
+
+    let mut new_scope = Scope::new(Some(scope.clone()));
+
+    for (value, name) in call
+        .args
+        .iter()
+        .map(|x| eval(x.clone(), scope).get_value())
+        .zip(f.args.iter().map(|x| x.name.clone()))
+    {
+        new_scope.declare(name, value);
+    }
+
+    eval(f.body, &mut new_scope)
 }
 
 fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> EvalResult {
@@ -55,6 +78,40 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Eva
             get_type(&right)
         ),
     })
+}
+
+fn eval_func(f: Function, scope: &mut Scope) -> EvalResult {
+    let Function {
+        name,
+        args,
+        body,
+        r#type,
+    } = f;
+
+    let args = args
+        .into_vec()
+        .into_iter()
+        .map(|arg| Arg {
+            name: arg.name,
+            r#type: match eval(arg.r#type, scope).get_value() {
+                Value::Type(t) => t,
+                _ => unreachable!("type checker should have ensured we dont get here"),
+            },
+        })
+        .collect();
+
+    let output = r#type
+        .map(|x| match eval(x, scope).get_value() {
+            Value::Type(t) => t,
+            _ => unreachable!("type checker should have ensured we dont get here"),
+        })
+        .unwrap_or(Type::Unit);
+
+    let func = Func { args, output, body };
+
+    scope.declare(name, Value::Func(func));
+
+    EvalResult::unit()
 }
 
 fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> EvalResult {
@@ -140,15 +197,30 @@ pub enum Value {
     Int(i64),
     String(Box<str>),
     Bool(bool),
-    _Type(Type),
+    Type(Type),
+    Func(Func),
     Unit,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Func {
+    args: Box<[Arg]>,
+    output: Type,
+    body: Expr,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Arg {
+    name: Box<str>,
+    r#type: Type,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
     Int,
     String,
     Bool,
+    Func(Box<[Type]>, Box<Type>),
     #[allow(clippy::enum_variant_names)]
     Type,
     Unit,
@@ -159,7 +231,11 @@ pub fn get_type(v: &Value) -> Type {
         Value::Int(_) => Type::Int,
         Value::String(_) => Type::String,
         Value::Bool(_) => Type::Bool,
-        Value::_Type(_) => Type::Type,
+        Value::Type(_) => Type::Type,
+        Value::Func(f) => Type::Func(
+            f.args.into_iter().map(|x| x.clone().r#type).collect(),
+            Box::new(f.output.clone()),
+        ),
         Value::Unit => Type::Unit,
     }
 }
@@ -188,7 +264,17 @@ impl Display for Value {
             Value::Int(i) => i.to_string(),
             Value::String(s) => format!(r#""{}""#, s),
             Value::Bool(b) => b.to_string(),
-            Value::_Type(_) => "Type".into(),
+            Value::Func(func) => {
+                let s: Vec<String> = func
+                    .args
+                    .as_ref()
+                    .iter()
+                    .map(|x| format!("{}", x.r#type))
+                    .collect();
+
+                return write!(f, "fn({}) -> {}", s.join(", "), func.output);
+            }
+            Value::Type(_) => "Type".into(),
             Value::Unit => "()".into(),
         };
 
@@ -204,6 +290,11 @@ impl Display for Type {
             Type::Bool => "Bool",
             Type::Type => "Type",
             Type::Unit => "Unit",
+            Type::Func(args, output) => {
+                let s: String = args.as_ref().iter().map(|x| format!("{}", x)).collect();
+
+                return write!(f, "fn({}) -> {}", s, output);
+            }
         };
 
         write!(f, "{}", s)
@@ -225,6 +316,16 @@ impl Scope {
             parent,
             vars: HashMap::new(),
         })))
+    }
+
+    pub fn prelude(&mut self) {
+        ([
+            ("Int", Type::Int),
+            ("Bool", Type::Bool),
+            ("Unit", Type::Unit),
+            ("String", Type::String),
+        ])
+        .map(|x| self.declare(x.0.into(), Value::Type(x.1)));
     }
 
     pub fn declare(&mut self, name: Box<str>, value: Value) {

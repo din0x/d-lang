@@ -1,8 +1,9 @@
+use std::fmt::Display;
+
 use crate::{
     ast::{BinOperator, ExprInfo, UnaryOperator, UnexpectedToken},
     typing::Type,
 };
-use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Error {
@@ -21,12 +22,20 @@ pub enum ErrorKind {
     SyntaxError(UnexpectedToken),
     BinOperatorUsage(BinOperator, Type, Type),
     UnaryOperatorUsage(UnaryOperator, Type),
+    BadCall(Type),
+    WrongArgCount(WrongArgCount),
     NoIdentifier(Box<str>),
     TypeMissmatch(TypeMissmatch),
     AssignmentToTemporary,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct WrongArgCount {
+    pub expected: usize,
+    pub found: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TypeMissmatch {
     pub expected: Type,
     pub found: Type,
@@ -82,6 +91,15 @@ impl Display for ErrorKind {
                 };
 
                 s
+            }
+            ErrorKind::WrongArgCount(err) => {
+                format!(
+                    "Function requires {} arguments, but {} were given",
+                    err.expected, err.found
+                )
+            }
+            ErrorKind::BadCall(t) => {
+                format!("Cannot call '{}'", t)
             }
             ErrorKind::NoIdentifier(name) => {
                 format!("Cannot find '{}' in current scope", name)

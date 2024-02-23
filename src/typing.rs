@@ -1,10 +1,13 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::error::{Error, ErrorKind, TypeMissmatch};
+use crate::{
+    ast::Call,
+    error::{Error, ErrorKind, TypeMissmatch, WrongArgCount},
+};
 
 use super::ast::{
-    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
-    UnaryOperator, VariableDeclaration,
+    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, Function, IfExpr, IllegalExpr,
+    UnaryExpr, UnaryOperator, VariableDeclaration,
 };
 
 pub fn is_valid(expr: &Expr, scope: &mut Scope) -> Result<(), Error> {
@@ -33,23 +36,36 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
 
             Err(Error::new(ErrorKind::NoIdentifier(name.clone()), expr.info))
         }
+        ExprKind::Call(call) => get_type_call(call, expr.info, scope),
+        ExprKind::Function(func) => get_type_func(func, expr.info, scope),
         ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, l, r, expr.info, scope),
         ExprKind::Unary(unary) => get_type_unary_expr(unary, expr.info, scope),
-        ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
         ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
         ExprKind::IfExpr(if_expr) => get_type_if_else(if_expr, expr.info, scope),
         ExprKind::Block(block) => get_type_block(block, scope),
+        ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
     }
 }
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
     Unit,
     Int,
     String,
     Bool,
+    Func(Box<Func>),
     #[allow(clippy::enum_variant_names)]
-    _Type,
+    Type(Option<Box<Self>>),
+}
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Func {
+    params: Box<[Param]>,
+    output: Type,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Param {
+    name: Box<str>,
+    r#type: Type,
 }
 
 impl From<Type> for TypeAndScopeInfo {
@@ -67,7 +83,17 @@ impl Display for Type {
             Type::Int => "Int",
             Type::String => "String",
             Type::Bool => "Bool",
-            Type::_Type => "Type",
+            Type::Func(func) => {
+                let s: Vec<String> = func
+                    .params
+                    .as_ref()
+                    .iter()
+                    .map(|x| format!("{}", x.r#type))
+                    .collect();
+
+                return write!(f, "fn({}) -> {}", s.join(", "), func.output);
+            }
+            Type::Type(_) => "Type",
             Type::Unit => "Unit",
         };
 
@@ -98,6 +124,16 @@ impl Scope {
         })))
     }
 
+    pub fn prelude(&mut self) {
+        ([
+            ("Int", Type::Int),
+            ("Bool", Type::Bool),
+            ("Unit", Type::Unit),
+            ("String", Type::String),
+        ])
+        .map(|x| self.declare(x.0.into(), Type::Type(Some(Box::new(x.1)))));
+    }
+
     fn with_parent(parent: &Scope) -> Scope {
         Scope(Rc::new(RefCell::new(ScopeContent {
             parent: Some(parent.clone()),
@@ -122,8 +158,181 @@ impl Scope {
     }
 
     fn lookup(&self, name: &str) -> Option<Type> {
-        (*self.get_scope(name)?.0).borrow().vars.get(name).copied()
+        (*self.get_scope(name)?.0).borrow().vars.get(name).cloned()
     }
+}
+
+fn get_type_call(
+    call: &Call,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
+    let func = get_type(&call.expr, scope);
+    let args: Vec<_> = call.args.iter().map(|x| get_type(x, scope)).collect();
+    let mut error = Error { errors: vec![] };
+
+    match func {
+        Ok(v) => match v.tp {
+            Type::Func(f) => {
+                for arg in args.iter() {
+                    match arg {
+                        Ok(_) => {}
+                        Err(err) => error = Error::from_two(error, err.clone()),
+                    }
+                }
+
+                if args.len() != f.params.len() {
+                    error = Error::from_two(
+                        error,
+                        Error::new(
+                            ErrorKind::WrongArgCount(WrongArgCount {
+                                expected: f.params.len(),
+                                found: args.len(),
+                            }),
+                            info,
+                        ),
+                    )
+                }
+
+                if !error.errors.is_empty() {
+                    return Err(error);
+                }
+
+                let args: Vec<_> = args.iter().map(|x| x.as_ref().unwrap()).collect();
+
+                for arg in args.iter().zip(f.params.iter()).zip(call.args.iter()) {
+                    if arg.0 .0.tp != arg.0 .1.r#type {
+                        error = Error::from_two(
+                            error,
+                            Error::new(
+                                ErrorKind::TypeMissmatch(TypeMissmatch {
+                                    expected: arg.0 .1.r#type.clone(),
+                                    found: arg.0 .0.tp.clone(),
+                                }),
+                                arg.1.info,
+                            ),
+                        );
+                    }
+                }
+
+                if !error.errors.is_empty() {
+                    return Err(error);
+                }
+
+                return Ok(f.output.into());
+            }
+            _ => {
+                error = Error::new(ErrorKind::BadCall(v.tp), info);
+            }
+        },
+        Err(e) => {
+            error = e;
+            for arg in args {
+                match arg {
+                    Ok(_) => {}
+                    Err(err) => error = Error::from_two(error, err),
+                }
+            }
+        }
+    }
+
+    Err(error)
+}
+
+fn get_type_func(
+    func: &Function,
+    info: ExprInfo,
+    scope: &mut Scope,
+) -> Result<TypeAndScopeInfo, Error> {
+    let mut error = Error { errors: vec![] };
+    let mut inner = Scope::with_parent(scope);
+    let mut params = vec![];
+
+    for arg in func.args.iter() {
+        let t = match get_type(&arg.r#type, scope) {
+            Ok(t) => {
+                if let Type::Type(Some(t)) = t.tp {
+                    t.as_ref().clone()
+                } else {
+                    error = Error::from_two(
+                        error,
+                        Error::new(
+                            ErrorKind::TypeMissmatch(TypeMissmatch {
+                                expected: Type::Type(None),
+                                found: t.tp,
+                            }),
+                            arg.info,
+                        ),
+                    );
+                    continue;
+                }
+            }
+            Err(err) => {
+                error = Error::from_two(error, err);
+                continue;
+            }
+        };
+
+        params.push(Param {
+            name: arg.name.clone(),
+            r#type: t.clone(),
+        });
+        inner.declare(arg.name.clone(), t);
+    }
+
+    let expected = func
+        .r#type
+        .as_ref()
+        .map(|x| get_type(x, scope))
+        .unwrap_or(Ok(Type::Type(Some(Box::new(Type::Unit))).into()));
+    let output = get_type(&func.body, &mut inner);
+
+    match (expected, output.clone()) {
+        (Ok(expected), Ok(output)) => {
+            if let Type::Type(Some(expected)) = expected.tp {
+                if &output.tp != expected.as_ref() {
+                    error = Error::from_two(
+                        error,
+                        Error::new(
+                            ErrorKind::TypeMissmatch(TypeMissmatch {
+                                expected: expected.as_ref().clone(),
+                                found: output.tp,
+                            }),
+                            func.body.info,
+                        ),
+                    );
+                }
+            } else {
+                error = Error::from_two(
+                    error,
+                    Error::new(
+                        ErrorKind::TypeMissmatch(TypeMissmatch {
+                            expected: Type::Type(None),
+                            found: expected.tp,
+                        }),
+                        func.r#type.clone().map(|x| x.info).unwrap_or(info),
+                    ),
+                );
+            }
+        }
+        (Err(err), Ok(_)) => error = Error::from_two(error, err),
+        (Ok(_), Err(err)) => error = Error::from_two(error, err),
+        (Err(err0), Err(err1)) => error = Error::from_two(error, Error::from_two(err0, err1)),
+    }
+
+    if !error.errors.is_empty() {
+        return Err(error);
+    }
+
+    scope.declare(
+        func.name.clone(),
+        Type::Func(Box::new(Func {
+            params: params.into_boxed_slice(),
+            output: output.unwrap().tp,
+        })),
+    );
+
+    Ok(Type::Unit.into())
 }
 
 fn get_type_if_else(
@@ -239,7 +448,7 @@ fn get_type_unary_expr(
     info: ExprInfo,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
-    use Type::*;
+    use Type::{Bool, Int};
     use UnaryOperator::*;
 
     let t = match (expr.op, get_type(&expr.expr, scope)?.tp) {

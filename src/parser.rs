@@ -1,6 +1,6 @@
 use crate::ast::{
-    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, IfExpr, IllegalExpr, UnaryExpr,
-    UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
+    Arg, Assignment, BinOperator, Block, Call, Expr, ExprInfo, ExprKind, Function, IfExpr,
+    IllegalExpr, UnaryExpr, UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
 };
 
 use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
@@ -8,11 +8,13 @@ use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_if_else,
     parse_variable_declaration,
+    parse_function,
     parse_assignment,
     parse_comparison,
     parse_additive,
     parse_multipicative,
     parse_unary,
+    parse_call,
     parse_parenthesis,
     parse_primary,
 ];
@@ -297,6 +299,155 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
     }
 }
 
+fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, ExprInfo)> {
+    if parser.current().kind != TokenKind::LParen {
+        return Err((
+            UnexpectedToken {
+                unexpacted: parser.current().kind.clone(),
+                expected: Some(TokenKind::LParen),
+            },
+            ExprInfo {
+                position: parser.current().info.location,
+                length: parser.current().info.length,
+            },
+        ));
+    }
+
+    parser.pop();
+
+    let mut args = vec![];
+
+    while parser.current().kind != TokenKind::RParen {
+        let info = parser.current().info;
+        let TokenKind::Identifier(name) = parser.current().kind.clone() else {
+            return Err((
+                UnexpectedToken {
+                    unexpacted: parser.current().kind.clone(),
+                    expected: Some(TokenKind::Identifier("".into())),
+                },
+                ExprInfo {
+                    position: parser.current().info.location,
+                    length: parser.current().info.length,
+                },
+            ));
+        };
+
+        parser.pop();
+
+        if parser.current().kind != TokenKind::Punctuation(Punctuation::Colon) {
+            return Err((
+                UnexpectedToken {
+                    unexpacted: parser.current().kind.clone(),
+                    expected: Some(TokenKind::Punctuation(Punctuation::Colon)),
+                },
+                ExprInfo {
+                    position: parser.current().info.location,
+                    length: parser.current().info.length,
+                },
+            ));
+        }
+        parser.pop();
+
+        let r#type = parse_expr(parser);
+
+        args.push(Arg {
+            name: name,
+            r#type,
+            info: ExprInfo {
+                position: info.location,
+                length: info.length,
+            },
+        });
+
+        if parser.current().kind == TokenKind::RParen {
+            break;
+        }
+
+        if parser.current().kind != TokenKind::Punctuation(Punctuation::Comma) {
+            return Err((
+                UnexpectedToken {
+                    unexpacted: parser.current().kind.clone(),
+                    expected: Some(TokenKind::Punctuation(Punctuation::Colon)),
+                },
+                ExprInfo {
+                    position: parser.current().info.location,
+                    length: parser.current().info.length,
+                },
+            ));
+        }
+
+        parser.pop();
+    }
+
+    parser.pop();
+    Ok(args.into_boxed_slice())
+}
+
+fn parse_function(parser: &mut ParserData) -> Expr {
+    if parser.current().kind != TokenKind::Keyword(Keyword::Fn) {
+        return parse_lower_level(parser);
+    }
+
+    let position = parser.current().info.location;
+    parser.pop();
+
+    let name = if let TokenKind::Identifier(name) = parser.current().kind.clone() {
+        parser.pop();
+        Ok(name)
+    } else {
+        Err(parser.current().clone())
+    };
+
+    let args = parse_args(parser);
+
+    let r#type = if parser.current().kind == TokenKind::Operator(Operator::Arrow) {
+        parser.pop();
+        Some(parse_expr(parser))
+    } else {
+        None
+    };
+
+    let body = parse_block(parser);
+
+    let Ok(name) = name else {
+        let err = name.err().unwrap();
+        return Expr {
+            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
+                unexpacted: err.kind.clone(),
+                expected: Some(TokenKind::Identifier("".into())),
+            })),
+            info: ExprInfo {
+                position: err.info.location,
+                length: err.info.length,
+            },
+        };
+    };
+
+    let args = match args {
+        Ok(args) => args,
+        Err(err) => {
+            return Expr {
+                kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(err.0)),
+                info: ExprInfo {
+                    position: err.1.position,
+                    length: err.1.length,
+                },
+            }
+        }
+    };
+
+    let length = body.info.position + body.info.length - position;
+    Expr {
+        kind: ExprKind::Function(Box::new(Function {
+            name,
+            args,
+            r#type,
+            body,
+        })),
+        info: ExprInfo { position, length },
+    }
+}
+
 fn parse_assignment(parser: &mut ParserData) -> Expr {
     let mut left = parse_lower_level(parser);
     let start = left.info.position;
@@ -346,6 +497,40 @@ fn parse_unary(parser: &mut ParserData) -> Expr {
             position,
         },
     }
+}
+
+fn parse_call(parser: &mut ParserData) -> Expr {
+    let mut expr = parse_lower_level(parser);
+
+    let position = expr.info.position;
+
+    while parser.current().kind == TokenKind::LParen {
+        parser.pop();
+
+        let mut args = vec![];
+
+        while parser.current().kind != TokenKind::RParen {
+            args.push(parse_expr(parser));
+
+            if parser.current().kind == TokenKind::Punctuation(Punctuation::Comma) {
+                parser.pop();
+            }
+        }
+
+        parser.pop();
+
+        let length = expr.info.position - position;
+
+        expr = Expr {
+            kind: ExprKind::Call(Box::new(Call {
+                expr,
+                args: args.into_boxed_slice(),
+            })),
+            info: ExprInfo { length, position },
+        }
+    }
+
+    expr
 }
 
 fn parse_parenthesis(parser: &mut ParserData) -> Expr {
