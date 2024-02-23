@@ -1,28 +1,35 @@
 use std::fmt::Display;
 
-use crate::lexer::{Operator, TokenKind};
+use crate::lexer::{Info, Operator, TokenKind};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Expr {
     pub kind: ExprKind,
-    pub info: ExprInfo,
+    pub info: Info,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind {
-    IllegalExpr(IllegalExpr),
-    Binary(BinOperator, Box<Expr>, Box<Expr>),
-    Unary(Box<UnaryExpr>),
+    Illegal(Box<Illegal>),
+    Binary(Box<Binary>),
+    Unary(Box<Unary>),
     Call(Box<Call>),
-    VariableDeclaration(VariableDeclaration),
+    Decl(Decl),
     Function(Box<Function>),
-    Assignment(Box<Assignment>),
-    IfExpr(Box<IfExpr>),
+    Assign(Box<Assign>),
+    If(Box<If>),
     Block(Box<Block>),
     Var(Box<str>),
     Int(i64),
     Bool(bool),
     String(Box<str>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Binary {
+    pub op: Binop,
+    pub left: Expr,
+    pub right: Expr,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -43,29 +50,29 @@ pub struct Function {
 pub struct Arg {
     pub name: Box<str>,
     pub r#type: Expr,
-    pub info: ExprInfo,
+    pub info: Info,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct UnaryExpr {
-    pub op: UnaryOperator,
+pub struct Unary {
+    pub op: Unop,
     pub expr: Expr,
 }
 
-pub const UNARY_OPERATORS: &[(Operator, UnaryOperator)] = &[
-    (Operator::Plus, UnaryOperator::Plus),
-    (Operator::Minus, UnaryOperator::Minus),
-    (Operator::Not, UnaryOperator::Not),
+pub const UNARY_OPERATORS: &[(Operator, Unop)] = &[
+    (Operator::Plus, Unop::Plus),
+    (Operator::Minus, Unop::Minus),
+    (Operator::Not, Unop::Not),
 ];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum UnaryOperator {
+pub enum Unop {
     Plus,
     Minus,
     Not,
 }
 
-impl Display for UnaryOperator {
+impl Display for Unop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -80,7 +87,7 @@ impl Display for UnaryOperator {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct IfExpr {
+pub struct If {
     pub condition: Expr,
     pub block: Expr,
     pub else_expr: Option<Expr>,
@@ -93,19 +100,13 @@ pub struct Block {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum IllegalExpr {
-    UnexpectedToken(UnexpectedToken),
-    IllegalChar(char),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct UnexpectedToken {
-    pub unexpacted: TokenKind,
+pub struct Illegal {
+    pub found: TokenKind,
     pub expected: Option<TokenKind>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum BinOperator {
+pub enum Binop {
     Addition,
     Subtraction,
     Multiplication,
@@ -119,18 +120,18 @@ pub enum BinOperator {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct VariableDeclaration {
+pub struct Decl {
     pub name: Box<str>,
     pub value: Box<Expr>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Assignment {
+pub struct Assign {
     pub left: Expr,
     pub right: Expr,
 }
 
-impl Display for BinOperator {
+impl Display for Binop {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Self::Addition => "+",
@@ -147,10 +148,4 @@ impl Display for BinOperator {
 
         write!(f, "{}", s)
     }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct ExprInfo {
-    pub length: usize,
-    pub position: usize,
 }

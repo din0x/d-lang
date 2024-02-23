@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::{BinOperator, ExprInfo, UnaryOperator, UnexpectedToken},
+    ast::{Binop, Illegal, Unop},
+    lexer::Info,
     typing::Type,
 };
 
@@ -13,15 +14,14 @@ pub struct Error {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct OneError {
     pub kind: ErrorKind,
-    pub info: ExprInfo,
+    pub info: Info,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ErrorKind {
-    IllagalChar(char),
-    SyntaxError(UnexpectedToken),
-    BinOperatorUsage(BinOperator, Type, Type),
-    UnaryOperatorUsage(UnaryOperator, Type),
+    SyntaxError(Illegal),
+    BinOperatorUsage(Binop, Type, Type),
+    UnaryOperatorUsage(Unop, Type),
     BadCall(Type),
     WrongArgCount(WrongArgCount),
     NoIdentifier(Box<str>),
@@ -42,7 +42,7 @@ pub struct TypeMissmatch {
 }
 
 impl Error {
-    pub fn new(kind: ErrorKind, info: ExprInfo) -> Error {
+    pub fn new(kind: ErrorKind, info: Info) -> Error {
         Error {
             errors: vec![OneError { kind, info }],
         }
@@ -80,11 +80,8 @@ impl Display for ErrorKind {
             ErrorKind::UnaryOperatorUsage(op, t) => {
                 format!("Cannot use '{}' operator with '{}'", op, t)
             }
-            ErrorKind::IllagalChar(c) => {
-                format!("Found unexpected character '{}'", c)
-            }
             ErrorKind::SyntaxError(token) => {
-                let mut s = format!("Unexpected token '{}'", token.unexpacted);
+                let mut s = format!("Unexpected token '{}'", token.found);
 
                 if let Some(expected) = token.expected.clone() {
                     s += format!(", expected '{}'", expected).as_str();

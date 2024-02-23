@@ -1,14 +1,12 @@
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
-    ast::Call,
+    ast::Binary,
     error::{Error, ErrorKind, TypeMissmatch, WrongArgCount},
+    lexer::Info,
 };
 
-use super::ast::{
-    Assignment, BinOperator, Block, Expr, ExprInfo, ExprKind, Function, IfExpr, IllegalExpr,
-    UnaryExpr, UnaryOperator, VariableDeclaration,
-};
+use super::ast::{Assign, Binop, Block, Call, Decl, Expr, ExprKind, Function, If, Unary, Unop};
 
 pub fn is_valid(expr: &Expr, scope: &mut Scope) -> Result<(), Error> {
     get_type(expr, scope)?;
@@ -17,12 +15,10 @@ pub fn is_valid(expr: &Expr, scope: &mut Scope) -> Result<(), Error> {
 
 fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
     match &expr.kind {
-        ExprKind::IllegalExpr(illegal) => match illegal {
-            IllegalExpr::IllegalChar(c) => Err(Error::new(ErrorKind::IllagalChar(*c), expr.info)),
-            IllegalExpr::UnexpectedToken(token) => {
-                Err(Error::new(ErrorKind::SyntaxError(token.clone()), expr.info))
-            }
-        },
+        ExprKind::Illegal(illegal) => Err(Error::new(
+            ErrorKind::SyntaxError(*illegal.clone()),
+            expr.info,
+        )),
         ExprKind::Int(_) => Ok(Type::Int.into()),
         ExprKind::String(_) => Ok(Type::String.into()),
         ExprKind::Bool(_) => Ok(Type::Bool.into()),
@@ -38,12 +34,12 @@ fn get_type(expr: &Expr, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
         }
         ExprKind::Call(call) => get_type_call(call, expr.info, scope),
         ExprKind::Function(func) => get_type_func(func, expr.info, scope),
-        ExprKind::Binary(op, l, r) => get_type_bin_expr(*op, l, r, expr.info, scope),
+        ExprKind::Binary(binary) => get_type_bin_expr(binary, expr.info, scope),
         ExprKind::Unary(unary) => get_type_unary_expr(unary, expr.info, scope),
-        ExprKind::Assignment(assignment) => get_type_assignment(assignment, expr.info, scope),
-        ExprKind::IfExpr(if_expr) => get_type_if_else(if_expr, expr.info, scope),
+        ExprKind::Assign(assignment) => get_type_assignment(assignment, expr.info, scope),
+        ExprKind::If(if_expr) => get_type_if_else(if_expr, expr.info, scope),
         ExprKind::Block(block) => get_type_block(block, scope),
-        ExprKind::VariableDeclaration(var) => get_type_var_declaration(var, scope),
+        ExprKind::Decl(var) => get_type_var_declaration(var, scope),
     }
 }
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -162,11 +158,7 @@ impl Scope {
     }
 }
 
-fn get_type_call(
-    call: &Call,
-    info: ExprInfo,
-    scope: &mut Scope,
-) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_call(call: &Call, info: Info, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
     let func = get_type(&call.expr, scope);
     let args: Vec<_> = call.args.iter().map(|x| get_type(x, scope)).collect();
     let mut error = Error { errors: vec![] };
@@ -241,7 +233,7 @@ fn get_type_call(
 
 fn get_type_func(
     func: &Function,
-    info: ExprInfo,
+    info: Info,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
     let mut error = Error { errors: vec![] };
@@ -336,8 +328,8 @@ fn get_type_func(
 }
 
 fn get_type_if_else(
-    if_else: &IfExpr,
-    info: ExprInfo,
+    if_else: &If,
+    info: Info,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
     let condition_type = get_type(&if_else.condition, scope)?;
@@ -388,10 +380,7 @@ fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, 
     })
 }
 
-fn get_type_var_declaration(
-    var: &VariableDeclaration,
-    scope: &mut Scope,
-) -> Result<TypeAndScopeInfo, Error> {
+fn get_type_var_declaration(var: &Decl, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
     let value = get_type(&var.value, scope)?;
 
     scope.declare(var.name.clone(), value.tp);
@@ -400,8 +389,8 @@ fn get_type_var_declaration(
 }
 
 fn get_type_assignment(
-    assignment: &Assignment,
-    info: ExprInfo,
+    assignment: &Assign,
+    info: Info,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
     let left = get_type(&assignment.left, scope)?;
@@ -426,17 +415,15 @@ fn get_type_assignment(
 }
 
 fn get_type_bin_expr(
-    op: BinOperator,
-    l: &Expr,
-    r: &Expr,
-    info: ExprInfo,
+    expr: &Binary,
+    info: Info,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
-    let left = get_type(l, scope);
-    let right = get_type(r, scope);
+    let left = get_type(&expr.left, scope);
+    let right = get_type(&expr.right, scope);
 
     match (left, right) {
-        (Ok(left), Ok(right)) => get_bin_expr_result_type(left.tp, right.tp, op, info),
+        (Ok(left), Ok(right)) => get_bin_expr_result_type(left.tp, right.tp, expr.op, info),
         (Err(err0), Err(err1)) => Err(Error::from_two(err0, err1)),
         (Err(err), _) => Err(err),
         (_, Err(err)) => Err(err),
@@ -444,12 +431,12 @@ fn get_type_bin_expr(
 }
 
 fn get_type_unary_expr(
-    expr: &UnaryExpr,
-    info: ExprInfo,
+    expr: &Unary,
+    info: Info,
     scope: &mut Scope,
 ) -> Result<TypeAndScopeInfo, Error> {
     use Type::{Bool, Int};
-    use UnaryOperator::*;
+    use Unop::*;
 
     let t = match (expr.op, get_type(&expr.expr, scope)?.tp) {
         (Plus, Int) => Int,
@@ -464,27 +451,27 @@ fn get_type_unary_expr(
 fn get_bin_expr_result_type(
     left: Type,
     right: Type,
-    op: BinOperator,
-    info: ExprInfo,
+    op: Binop,
+    info: Info,
 ) -> Result<TypeAndScopeInfo, Error> {
     let result = match (op, left, right) {
-        (BinOperator::Addition, Type::Int, Type::Int) => Ok(Type::Int),
-        (BinOperator::Subtraction, Type::Int, Type::Int) => Ok(Type::Int),
-        (BinOperator::Multiplication, Type::Int, Type::Int) => Ok(Type::Int),
-        (BinOperator::Division, Type::Int, Type::Int) => Ok(Type::Int),
-        (BinOperator::Equal, Type::Int, Type::Int) => Ok(Type::Bool),
-        (BinOperator::NotEqual, Type::Int, Type::Int) => Ok(Type::Bool),
-        (BinOperator::More, Type::Int, Type::Int) => Ok(Type::Bool),
-        (BinOperator::MoreOrEqual, Type::Int, Type::Int) => Ok(Type::Bool),
-        (BinOperator::Less, Type::Int, Type::Int) => Ok(Type::Bool),
-        (BinOperator::LessOrEqual, Type::Int, Type::Int) => Ok(Type::Bool),
-        (BinOperator::Addition, Type::String, Type::String) => Ok(Type::String),
-        (BinOperator::Equal, Type::String, Type::String) => Ok(Type::Bool),
-        (BinOperator::NotEqual, Type::String, Type::String) => Ok(Type::Bool),
-        (BinOperator::Multiplication, Type::String, Type::Int) => Ok(Type::String),
-        (BinOperator::Multiplication, Type::Int, Type::String) => Ok(Type::String),
-        (BinOperator::Equal, Type::Bool, Type::Bool) => Ok(Type::Bool),
-        (BinOperator::NotEqual, Type::Bool, Type::Bool) => Ok(Type::Bool),
+        (Binop::Addition, Type::Int, Type::Int) => Ok(Type::Int),
+        (Binop::Subtraction, Type::Int, Type::Int) => Ok(Type::Int),
+        (Binop::Multiplication, Type::Int, Type::Int) => Ok(Type::Int),
+        (Binop::Division, Type::Int, Type::Int) => Ok(Type::Int),
+        (Binop::Equal, Type::Int, Type::Int) => Ok(Type::Bool),
+        (Binop::NotEqual, Type::Int, Type::Int) => Ok(Type::Bool),
+        (Binop::More, Type::Int, Type::Int) => Ok(Type::Bool),
+        (Binop::MoreOrEqual, Type::Int, Type::Int) => Ok(Type::Bool),
+        (Binop::Less, Type::Int, Type::Int) => Ok(Type::Bool),
+        (Binop::LessOrEqual, Type::Int, Type::Int) => Ok(Type::Bool),
+        (Binop::Addition, Type::String, Type::String) => Ok(Type::String),
+        (Binop::Equal, Type::String, Type::String) => Ok(Type::Bool),
+        (Binop::NotEqual, Type::String, Type::String) => Ok(Type::Bool),
+        (Binop::Multiplication, Type::String, Type::Int) => Ok(Type::String),
+        (Binop::Multiplication, Type::Int, Type::String) => Ok(Type::String),
+        (Binop::Equal, Type::Bool, Type::Bool) => Ok(Type::Bool),
+        (Binop::NotEqual, Type::Bool, Type::Bool) => Ok(Type::Bool),
         (_, left, right) => Err(Error::new(
             ErrorKind::BinOperatorUsage(op, left, right),
             info,

@@ -30,9 +30,9 @@ pub fn parse_tokens(text: &str) -> Vec<Token> {
 
     tokens.push(Token {
         kind: TokenKind::Eof,
-        info: TokenInfo {
+        info: Info {
             length: 0,
-            location: lexer.position,
+            position: lexer.position,
         },
     });
 
@@ -42,7 +42,7 @@ pub fn parse_tokens(text: &str) -> Vec<Token> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub info: TokenInfo,
+    pub info: Info,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -180,9 +180,9 @@ impl Display for Keyword {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct TokenInfo {
+pub struct Info {
     pub length: usize,
-    pub location: usize,
+    pub position: usize,
 }
 
 fn skip_whitespace(lexer: &mut LexerData) {
@@ -226,10 +226,7 @@ fn parse_keyword_or_identifier(lexer: &mut LexerData) -> Option<Token> {
 
     Some(Token {
         kind: token_kind,
-        info: TokenInfo {
-            length,
-            location: position,
-        },
+        info: Info { length, position },
     })
 }
 
@@ -246,9 +243,9 @@ fn parse_number(lexer: &mut LexerData) -> Option<Token> {
 
         return Some(Token {
             kind: TokenKind::Int(number),
-            info: TokenInfo {
+            info: Info {
                 length: number_as_str.len(),
-                location: position,
+                position,
             },
         });
     }
@@ -274,10 +271,7 @@ fn parse_string(lexer: &mut LexerData) -> Option<Token> {
 
     Some(Token {
         kind: TokenKind::String(string.into_boxed_str()),
-        info: TokenInfo {
-            length,
-            location: position,
-        },
+        info: Info { length, position },
     })
 }
 
@@ -323,10 +317,7 @@ fn parse_operator(lexer: &mut LexerData) -> Option<Token> {
 
     Some(Token {
         kind: TokenKind::Operator(operator),
-        info: TokenInfo {
-            length,
-            location: position,
-        },
+        info: Info { length, position },
     })
 }
 
@@ -336,9 +327,9 @@ fn parse_punctuation(lexer: &mut LexerData) -> Option<Token> {
             lexer.pop();
             return Some(Token {
                 kind: TokenKind::Punctuation(c.1),
-                info: TokenInfo {
+                info: Info {
                     length: 1,
-                    location: lexer.position,
+                    position: lexer.position,
                 },
             });
         }
@@ -362,9 +353,9 @@ fn parse_parenthesis(lexer: &mut LexerData) -> Option<Token> {
 
     Some(Token {
         kind,
-        info: TokenInfo {
+        info: Info {
             length: 1,
-            location,
+            position: location,
         },
     })
 }
@@ -373,9 +364,9 @@ fn parse_illegal(lexer: &mut LexerData) -> Option<Token> {
     let position = lexer.position;
     Some(Token {
         kind: TokenKind::Illegal(lexer.pop()),
-        info: TokenInfo {
+        info: Info {
             length: 1,
-            location: position,
+            position,
         },
     })
 }
@@ -414,30 +405,30 @@ mod tests {
         let expected = vec![
             Token {
                 kind: TokenKind::Int(123),
-                info: TokenInfo {
+                info: Info {
                     length: 3,
-                    location: 0,
+                    position: 0,
                 },
             },
             Token {
                 kind: TokenKind::Operator(Operator::Minus),
-                info: TokenInfo {
+                info: Info {
                     length: 1,
-                    location: 3,
+                    position: 3,
                 },
             },
             Token {
                 kind: TokenKind::String("abc".into()),
-                info: TokenInfo {
+                info: Info {
                     length: 5,
-                    location: 5,
+                    position: 5,
                 },
             },
             Token {
                 kind: TokenKind::Eof,
-                info: TokenInfo {
+                info: Info {
                     length: 0,
-                    location: 11,
+                    position: 11,
                 },
             },
         ];

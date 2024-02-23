@@ -1,9 +1,9 @@
 use crate::ast::{
-    Arg, Assignment, BinOperator, Block, Call, Expr, ExprInfo, ExprKind, Function, IfExpr,
-    IllegalExpr, UnaryExpr, UnexpectedToken, VariableDeclaration, UNARY_OPERATORS,
+    Arg, Assign, Binary, Binop, Block, Call, Decl, Expr, ExprKind, Function, If, Illegal, Unary,
+    UNARY_OPERATORS,
 };
 
-use super::lexer::{Keyword, Operator, Punctuation, Token, TokenKind};
+use super::lexer::{Info, Keyword, Operator, Punctuation, Token, TokenKind};
 
 const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_if_else,
@@ -41,22 +41,15 @@ fn parse_expr(parser: &mut ParserData) -> Expr {
 
 fn parse_lower_level(parser: &mut ParserData) -> Expr {
     if parser.expr_parsers.is_empty() {
-        let unexpacted = parser.pop();
-
-        let mut illegal_expr = IllegalExpr::UnexpectedToken(UnexpectedToken {
-            unexpacted: unexpacted.kind.clone(),
-            expected: None,
-        });
-
-        if let TokenKind::Illegal(c) = unexpacted.kind {
-            illegal_expr = IllegalExpr::IllegalChar(c);
-        }
-
+        let unexpected = parser.pop();
         return Expr {
-            kind: ExprKind::IllegalExpr(illegal_expr),
-            info: ExprInfo {
-                length: unexpacted.info.length,
-                position: unexpacted.info.location,
+            kind: ExprKind::Illegal(Box::new(Illegal {
+                found: unexpected.kind.clone(),
+                expected: None,
+            })),
+            info: Info {
+                length: unexpected.info.length,
+                position: unexpected.info.position,
             },
         };
     }
@@ -109,7 +102,7 @@ macro_rules! make_binary_expr_parser {
             // I fucking hate it
             while (generate_condition!(parser, $($binds.0),+)) && !parser.eof() {
                 let operator = parser.pop();
-                let binop = generate_match_patterns!(
+                let op = generate_match_patterns!(
                     operator,
                     $($binds),+
                 );
@@ -120,8 +113,12 @@ macro_rules! make_binary_expr_parser {
                 let position = left.info.position;
 
                 left = Expr {
-                    kind: ExprKind::Binary(binop, Box::new(left), Box::new(right)),
-                    info: ExprInfo { length, position },
+                    kind: ExprKind::Binary(Box::new(Binary {
+                        op,
+                        left,
+                        right,
+                    })),
+                    info: Info { length, position },
                 }
             }
 
@@ -132,24 +129,24 @@ macro_rules! make_binary_expr_parser {
 
 make_binary_expr_parser!(
     parse_additive,
-    (Operator::Plus, BinOperator::Addition),
-    (Operator::Minus, BinOperator::Subtraction)
+    (Operator::Plus, Binop::Addition),
+    (Operator::Minus, Binop::Subtraction)
 );
 
 make_binary_expr_parser!(
     parse_multipicative,
-    (Operator::Star, BinOperator::Multiplication),
-    (Operator::Slash, BinOperator::Division)
+    (Operator::Star, Binop::Multiplication),
+    (Operator::Slash, Binop::Division)
 );
 
 make_binary_expr_parser!(
     parse_comparison,
-    (Operator::Equal, BinOperator::Equal),
-    (Operator::NotEqual, BinOperator::NotEqual),
-    (Operator::Less, BinOperator::Less),
-    (Operator::LessOrEqual, BinOperator::LessOrEqual),
-    (Operator::More, BinOperator::More),
-    (Operator::MoreOrEqual, BinOperator::MoreOrEqual)
+    (Operator::Equal, Binop::Equal),
+    (Operator::NotEqual, Binop::NotEqual),
+    (Operator::Less, Binop::Less),
+    (Operator::LessOrEqual, Binop::LessOrEqual),
+    (Operator::More, Binop::More),
+    (Operator::MoreOrEqual, Binop::MoreOrEqual)
 );
 
 fn parse_if_else(parser: &mut ParserData) -> Expr {
@@ -157,7 +154,7 @@ fn parse_if_else(parser: &mut ParserData) -> Expr {
         return parse_lower_level(parser);
     }
 
-    let position = parser.current().info.location;
+    let position = parser.current().info.position;
     parser.pop();
 
     let condition = parse_lower_level(parser);
@@ -175,12 +172,12 @@ fn parse_if_else(parser: &mut ParserData) -> Expr {
     }
 
     Expr {
-        kind: ExprKind::IfExpr(Box::new(IfExpr {
+        kind: ExprKind::If(Box::new(If {
             condition,
             block,
             else_expr,
         })),
-        info: ExprInfo {
+        info: Info {
             position,
             length: end - position,
         },
@@ -188,15 +185,15 @@ fn parse_if_else(parser: &mut ParserData) -> Expr {
 }
 
 fn parse_block(parser: &mut ParserData) -> Expr {
-    let position = parser.current().info.location;
+    let position = parser.current().info.position;
     if parser.current().kind != TokenKind::LSquirly {
         return Expr {
-            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
-                unexpacted: parser.current().kind.clone(),
+            kind: ExprKind::Illegal(Box::new(Illegal {
+                found: parser.current().kind.clone(),
                 expected: Some(TokenKind::LSquirly),
             })),
-            info: ExprInfo {
-                position: parser.current().info.location,
+            info: Info {
+                position: parser.current().info.position,
                 length: 1,
             },
         };
@@ -224,17 +221,17 @@ fn parse_block(parser: &mut ParserData) -> Expr {
     let end;
     if parser.current().kind != TokenKind::RSquirly {
         return Expr {
-            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
-                unexpacted: parser.current().kind.clone(),
+            kind: ExprKind::Illegal(Box::new(Illegal {
+                found: parser.current().kind.clone(),
                 expected: Some(TokenKind::RSquirly),
             })),
-            info: ExprInfo {
-                position: parser.current().info.location,
+            info: Info {
+                position: parser.current().info.position,
                 length: 1,
             },
         };
     } else {
-        end = parser.current().info.location;
+        end = parser.current().info.position;
         parser.pop();
     }
 
@@ -243,7 +240,7 @@ fn parse_block(parser: &mut ParserData) -> Expr {
             content: content.into_boxed_slice(),
             tail,
         })),
-        info: ExprInfo {
+        info: Info {
             position,
             length: end - position,
         },
@@ -255,7 +252,7 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
         return parse_lower_level(parser);
     }
 
-    let position = parser.pop().info.location;
+    let position = parser.pop().info.position;
 
     let name = parser.pop();
     let equal_sign = parser.pop();
@@ -265,49 +262,49 @@ fn parse_variable_declaration(parser: &mut ParserData) -> Expr {
     if let TokenKind::Identifier(iden) = name.kind {
         if equal_sign.kind == TokenKind::Operator(Operator::Assignment) {
             return Expr {
-                kind: ExprKind::VariableDeclaration(VariableDeclaration {
+                kind: ExprKind::Decl(Decl {
                     name: iden,
                     value: Box::new(expr),
                 }),
-                info: ExprInfo {
+                info: Info {
                     length: end - position,
                     position,
                 },
             };
         }
         return Expr {
-            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
-                unexpacted: equal_sign.kind,
+            kind: ExprKind::Illegal(Box::new(Illegal {
+                found: equal_sign.kind,
                 expected: Some(TokenKind::Operator(Operator::Assignment)),
             })),
-            info: ExprInfo {
+            info: Info {
                 length: equal_sign.info.length,
-                position: equal_sign.info.location,
+                position: equal_sign.info.position,
             },
         };
     }
 
     Expr {
-        kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
-            unexpacted: name.kind,
+        kind: ExprKind::Illegal(Box::new(Illegal {
+            found: name.kind,
             expected: Some(TokenKind::Identifier("".into())),
         })),
-        info: ExprInfo {
+        info: Info {
             length: name.info.length,
-            position: name.info.location,
+            position: name.info.position,
         },
     }
 }
 
-fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, ExprInfo)> {
+fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (Illegal, Info)> {
     if parser.current().kind != TokenKind::LParen {
         return Err((
-            UnexpectedToken {
-                unexpacted: parser.current().kind.clone(),
+            Illegal {
+                found: parser.current().kind.clone(),
                 expected: Some(TokenKind::LParen),
             },
-            ExprInfo {
-                position: parser.current().info.location,
+            Info {
+                position: parser.current().info.position,
                 length: parser.current().info.length,
             },
         ));
@@ -321,12 +318,12 @@ fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, E
         let info = parser.current().info;
         let TokenKind::Identifier(name) = parser.current().kind.clone() else {
             return Err((
-                UnexpectedToken {
-                    unexpacted: parser.current().kind.clone(),
+                Illegal {
+                    found: parser.current().kind.clone(),
                     expected: Some(TokenKind::Identifier("".into())),
                 },
-                ExprInfo {
-                    position: parser.current().info.location,
+                Info {
+                    position: parser.current().info.position,
                     length: parser.current().info.length,
                 },
             ));
@@ -336,12 +333,12 @@ fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, E
 
         if parser.current().kind != TokenKind::Punctuation(Punctuation::Colon) {
             return Err((
-                UnexpectedToken {
-                    unexpacted: parser.current().kind.clone(),
+                Illegal {
+                    found: parser.current().kind.clone(),
                     expected: Some(TokenKind::Punctuation(Punctuation::Colon)),
                 },
-                ExprInfo {
-                    position: parser.current().info.location,
+                Info {
+                    position: parser.current().info.position,
                     length: parser.current().info.length,
                 },
             ));
@@ -351,10 +348,10 @@ fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, E
         let r#type = parse_expr(parser);
 
         args.push(Arg {
-            name: name,
+            name,
             r#type,
-            info: ExprInfo {
-                position: info.location,
+            info: Info {
+                position: info.position,
                 length: info.length,
             },
         });
@@ -365,12 +362,12 @@ fn parse_args(parser: &mut ParserData) -> Result<Box<[Arg]>, (UnexpectedToken, E
 
         if parser.current().kind != TokenKind::Punctuation(Punctuation::Comma) {
             return Err((
-                UnexpectedToken {
-                    unexpacted: parser.current().kind.clone(),
+                Illegal {
+                    found: parser.current().kind.clone(),
                     expected: Some(TokenKind::Punctuation(Punctuation::Colon)),
                 },
-                ExprInfo {
-                    position: parser.current().info.location,
+                Info {
+                    position: parser.current().info.position,
                     length: parser.current().info.length,
                 },
             ));
@@ -388,7 +385,7 @@ fn parse_function(parser: &mut ParserData) -> Expr {
         return parse_lower_level(parser);
     }
 
-    let position = parser.current().info.location;
+    let position = parser.current().info.position;
     parser.pop();
 
     let name = if let TokenKind::Identifier(name) = parser.current().kind.clone() {
@@ -412,12 +409,12 @@ fn parse_function(parser: &mut ParserData) -> Expr {
     let Ok(name) = name else {
         let err = name.err().unwrap();
         return Expr {
-            kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
-                unexpacted: err.kind.clone(),
+            kind: ExprKind::Illegal(Box::new(Illegal {
+                found: err.kind.clone(),
                 expected: Some(TokenKind::Identifier("".into())),
             })),
-            info: ExprInfo {
-                position: err.info.location,
+            info: Info {
+                position: err.info.position,
                 length: err.info.length,
             },
         };
@@ -427,8 +424,8 @@ fn parse_function(parser: &mut ParserData) -> Expr {
         Ok(args) => args,
         Err(err) => {
             return Expr {
-                kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(err.0)),
-                info: ExprInfo {
+                kind: ExprKind::Illegal(Box::new(err.0)),
+                info: Info {
                     position: err.1.position,
                     length: err.1.length,
                 },
@@ -444,7 +441,7 @@ fn parse_function(parser: &mut ParserData) -> Expr {
             r#type,
             body,
         })),
-        info: ExprInfo { position, length },
+        info: Info { position, length },
     }
 }
 
@@ -458,8 +455,8 @@ fn parse_assignment(parser: &mut ParserData) -> Expr {
         let position = right.info.position;
 
         left = Expr {
-            kind: ExprKind::Assignment(Box::new(Assignment { left, right })),
-            info: ExprInfo {
+            kind: ExprKind::Assign(Box::new(Assign { left, right })),
+            info: Info {
                 position: start,
                 length: position - start,
             },
@@ -477,14 +474,14 @@ fn parse_unary(parser: &mut ParserData) -> Expr {
     {
         return parse_lower_level(parser);
     }
-    let position = parser.current().info.location;
+    let position = parser.current().info.position;
     let op = parser.pop().kind;
 
     let expr = parse_lower_level(parser);
     let expr_position = expr.info.position;
 
     Expr {
-        kind: ExprKind::Unary(Box::new(UnaryExpr {
+        kind: ExprKind::Unary(Box::new(Unary {
             op: UNARY_OPERATORS
                 .iter()
                 .find(|x| TokenKind::Operator(x.0) == op)
@@ -492,7 +489,7 @@ fn parse_unary(parser: &mut ParserData) -> Expr {
                 .1,
             expr,
         })),
-        info: ExprInfo {
+        info: Info {
             length: expr_position - position,
             position,
         },
@@ -526,7 +523,7 @@ fn parse_call(parser: &mut ParserData) -> Expr {
                 expr,
                 args: args.into_boxed_slice(),
             })),
-            info: ExprInfo { length, position },
+            info: Info { length, position },
         }
     }
 
@@ -551,13 +548,13 @@ fn parse_parenthesis(parser: &mut ParserData) -> Expr {
     let unexpected_token = parser.pop();
 
     Expr {
-        kind: ExprKind::IllegalExpr(IllegalExpr::UnexpectedToken(UnexpectedToken {
-            unexpacted: unexpected_token.kind,
+        kind: ExprKind::Illegal(Box::new(Illegal {
+            found: unexpected_token.kind,
             expected: None,
         })),
-        info: ExprInfo {
+        info: Info {
             length: unexpected_token.info.length,
-            position: unexpected_token.info.location,
+            position: unexpected_token.info.position,
         },
     }
 }
@@ -583,9 +580,9 @@ fn parse_primary(parser: &mut ParserData) -> Expr {
 
     Expr {
         kind,
-        info: ExprInfo {
+        info: Info {
             length: info.length,
-            position: info.location,
+            position: info.position,
         },
     }
 }

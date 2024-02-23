@@ -1,9 +1,6 @@
-use crate::ast::{Call, Function};
+use crate::ast::{Binary, Call, Function};
 
-use super::ast::{
-    Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
-    VariableDeclaration,
-};
+use super::ast::{Assign, Binop, Block, Decl, Expr, ExprKind, If, Unary, Unop};
 
 pub fn run(expr: Expr, scope: &mut Scope) -> Value {
     eval(expr, scope).get_value()
@@ -11,19 +8,19 @@ pub fn run(expr: Expr, scope: &mut Scope) -> Value {
 
 fn eval(expr: Expr, scope: &mut Scope) -> EvalResult {
     match expr.kind {
-        ExprKind::IllegalExpr(_) => panic!("illegal exprassion"),
+        ExprKind::Illegal(_) => panic!("illegal exprassion"),
         ExprKind::Int(i) => EvalResult::new(Value::Int(i)),
         ExprKind::Bool(b) => EvalResult::new(Value::Bool(b)),
         ExprKind::String(s) => EvalResult::new(Value::String(s.clone())),
-        ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
+        ExprKind::Binary(expr) => eval_binary_expr(*expr, scope),
         ExprKind::Unary(unary) => eval_unary(*unary, scope),
         ExprKind::Call(expr) => eval_call(*expr, scope),
-        ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
+        ExprKind::Decl(var) => eval_declaration(var, scope),
         ExprKind::Function(f) => eval_func(*f, scope),
         ExprKind::Var(expr) => eval_var(expr, scope),
-        ExprKind::Assignment(expr) => eval_assignment(*expr, scope),
+        ExprKind::Assign(expr) => eval_assignment(*expr, scope),
         ExprKind::Block(expr) => eval_block(*expr, scope),
-        ExprKind::IfExpr(expr) => eval_if_expr(*expr, scope),
+        ExprKind::If(expr) => eval_if_expr(*expr, scope),
     }
 }
 
@@ -46,14 +43,14 @@ fn eval_call(call: Call, scope: &mut Scope) -> EvalResult {
     eval(f.body, &mut new_scope)
 }
 
-fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> EvalResult {
-    use BinOperator::*;
+fn eval_binary_expr(expr: Binary, scope: &mut Scope) -> EvalResult {
+    use Binop::*;
     use Value::*;
 
-    let left = eval(l, scope).get_value();
-    let right = eval(r, scope).get_value();
+    let left = eval(expr.left, scope).get_value();
+    let right = eval(expr.right, scope).get_value();
 
-    EvalResult::new(match (op, left, right) {
+    EvalResult::new(match (expr.op, left, right) {
         (Addition, Int(i0), Int(i1)) => Int(i0 + i1),
         (Subtraction, Int(i0), Int(i1)) => Int(i0 - i1),
         (Multiplication, Int(i0), Int(i1)) => Int(i0 * i1),
@@ -73,7 +70,7 @@ fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> Eva
         (NotEqual, Bool(b0), Bool(b1)) => Bool(b0 != b1),
         (_, left, right) => panic!(
             "cannot use '{}' operator with '{}' and  '{}'",
-            op,
+            expr.op,
             get_type(&left),
             get_type(&right)
         ),
@@ -114,7 +111,7 @@ fn eval_func(f: Function, scope: &mut Scope) -> EvalResult {
     EvalResult::unit()
 }
 
-fn eval_declaration(var: VariableDeclaration, scope: &mut Scope) -> EvalResult {
+fn eval_declaration(var: Decl, scope: &mut Scope) -> EvalResult {
     let value = eval(*var.value, scope).get_value();
 
     scope.declare(var.name, value);
@@ -125,7 +122,7 @@ fn eval_var(name: Box<str>, scope: &mut Scope) -> EvalResult {
     scope.lookup(&name)
 }
 
-fn eval_assignment(assignment: Assignment, scope: &mut Scope) -> EvalResult {
+fn eval_assignment(assignment: Assign, scope: &mut Scope) -> EvalResult {
     let left = eval(assignment.left, scope);
     let right = eval(assignment.right, scope);
 
@@ -147,8 +144,8 @@ fn eval_block(expr: Block, scope: &mut Scope) -> EvalResult {
     EvalResult::unit()
 }
 
-fn eval_unary(expr: UnaryExpr, scope: &mut Scope) -> EvalResult {
-    use UnaryOperator::*;
+fn eval_unary(expr: Unary, scope: &mut Scope) -> EvalResult {
+    use Unop::*;
     let value = eval(expr.expr, scope);
 
     let value = match (expr.op, value.get_value()) {
@@ -161,7 +158,7 @@ fn eval_unary(expr: UnaryExpr, scope: &mut Scope) -> EvalResult {
     EvalResult::new(value)
 }
 
-fn eval_if_expr(expr: IfExpr, scope: &mut Scope) -> EvalResult {
+fn eval_if_expr(expr: If, scope: &mut Scope) -> EvalResult {
     let result = eval(expr.condition, scope).get_value();
     let Value::Bool(condition) = result else {
         panic!("condition was {}", result)
@@ -233,7 +230,7 @@ pub fn get_type(v: &Value) -> Type {
         Value::Bool(_) => Type::Bool,
         Value::Type(_) => Type::Type,
         Value::Func(f) => Type::Func(
-            f.args.into_iter().map(|x| x.clone().r#type).collect(),
+            f.args.iter().map(|x| x.clone().r#type).collect(),
             Box::new(f.output.clone()),
         ),
         Value::Unit => Type::Unit,
@@ -291,7 +288,11 @@ impl Display for Type {
             Type::Type => "Type",
             Type::Unit => "Unit",
             Type::Func(args, output) => {
-                let s: String = args.as_ref().iter().map(|x| format!("{}", x)).collect();
+                use std::fmt::Write;
+                let s: String = args.as_ref().iter().fold(String::new(), |mut output, x| {
+                    let _ = write!(output, "{x}");
+                    output
+                });
 
                 return write!(f, "fn({}) -> {}", s, output);
             }
