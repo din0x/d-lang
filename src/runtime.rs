@@ -1,4 +1,4 @@
-use crate::ast::Function;
+use crate::ast::{Call, Function};
 
 use super::ast::{
     Assignment, BinOperator, Block, Expr, ExprKind, IfExpr, UnaryExpr, UnaryOperator,
@@ -17,6 +17,7 @@ fn eval(expr: Expr, scope: &mut Scope) -> EvalResult {
         ExprKind::String(s) => EvalResult::new(Value::String(s.clone())),
         ExprKind::Binary(op, l, r) => eval_binary_expr(op, *l, *r, scope),
         ExprKind::Unary(unary) => eval_unary(*unary, scope),
+        ExprKind::Call(expr) => eval_call(*expr, scope),
         ExprKind::VariableDeclaration(var) => eval_declaration(var, scope),
         ExprKind::Function(f) => eval_func(*f, scope),
         ExprKind::Var(expr) => eval_var(expr, scope),
@@ -24,6 +25,25 @@ fn eval(expr: Expr, scope: &mut Scope) -> EvalResult {
         ExprKind::Block(expr) => eval_block(*expr, scope),
         ExprKind::IfExpr(expr) => eval_if_expr(*expr, scope),
     }
+}
+
+fn eval_call(call: Call, scope: &mut Scope) -> EvalResult {
+    let Value::Func(f) = eval(call.expr, scope).get_value() else {
+        unreachable!("type checker should ensure this is a function")
+    };
+
+    let mut new_scope = Scope::new(Some(scope.clone()));
+
+    for (value, name) in call
+        .args
+        .iter()
+        .map(|x| eval(x.clone(), scope).get_value())
+        .zip(f.args.iter().map(|x| x.name.clone()))
+    {
+        new_scope.declare(name, value);
+    }
+
+    eval(f.body, &mut new_scope)
 }
 
 fn eval_binary_expr(op: BinOperator, l: Expr, r: Expr, scope: &mut Scope) -> EvalResult {
