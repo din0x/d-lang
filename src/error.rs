@@ -142,7 +142,7 @@ pub fn err_format(error: Error, path: &Path, file: &str) -> String {
         );
 
         if err_index != err_count {
-            _ = write!(s, "\n");
+            _ = writeln!(s);
         }
     }
 
