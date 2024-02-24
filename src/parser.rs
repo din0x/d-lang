@@ -242,7 +242,7 @@ fn parse_block(parser: &mut ParserData) -> Expr {
         })),
         info: Info {
             position,
-            length: end - position,
+            length: end - position + 1,
         },
     }
 }
