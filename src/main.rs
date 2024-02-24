@@ -1,4 +1,10 @@
-use std::{fs::File, io::Read, path::Path};
+use std::{
+    fs::File,
+    io::{stdin, stdout, Read, Write},
+    path::Path,
+};
+
+use error::err_format;
 
 mod ast;
 mod error;
@@ -31,8 +37,6 @@ fn create_scopes() -> (typing::Scope, runtime::Scope) {
 }
 
 fn run_cli() {
-    use std::io::{stdin, stdout, Write};
-
     let (mut scope, mut runtime_scope) = create_scopes();
 
     loop {
@@ -54,7 +58,10 @@ fn run_cli() {
                 let v = runtime::run(ast, &mut runtime_scope);
                 println!("{}", v);
             }
-            Err(err) => println!("{}", err),
+            Err(err) => {
+                print!("{}", err_format(err, Path::new("<stdio>"), &code));
+                let _ = std::io::stdout().flush();
+            }
         }
     }
 }
@@ -64,20 +71,26 @@ fn exec(path: &Path) {
     let mut buf = String::default();
     match file {
         Ok(mut f) => _ = f.read_to_string(&mut buf),
-        Err(err) => {
-            dbg!(err);
-            return
-        },
+        Err(_) => {
+            println!(
+                "\x1b[31m\x1b[1merror\x1b[0m: cannot open file: {}",
+                path.display()
+            );
+            return;
+        }
     };
 
     let tokens = lexer::parse_tokens(&buf);
     let ast = parser::parse_ast(&tokens);
-    
+
     let (mut scope, mut runtime_scope) = create_scopes();
     let result = typing::is_valid(&ast, &mut scope).map(|_| ast);
 
     match result {
         Ok(ast) => _ = runtime::run(ast, &mut runtime_scope),
-        Err(err) => println!("{}", err),
+        Err(err) => {
+            print!("{}", err_format(err, path, &buf));
+            let _ = std::io::stdout().flush();
+        }
     }
 }

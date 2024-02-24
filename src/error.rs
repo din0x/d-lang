@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::{Display, Write},
+    path::Path,
+};
 
 use crate::{
     ast::{Binop, Illegal, Unop},
@@ -56,32 +59,17 @@ impl Error {
     }
 }
 
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = String::new();
-
-        for err in self.errors.iter() {
-            s += &format!("Error: {}\n", err.kind);
-        }
-
-        // pop last new line
-        s.pop();
-
-        write!(f, "{}", s)
-    }
-}
-
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s: String = match self {
             ErrorKind::BinOperatorUsage(op, l, r) => {
-                format!("Cannot use '{}' operator with '{}' and '{}'", op, l, r)
+                format!("cannot use '{}' operator with '{}' and '{}'", op, l, r)
             }
             ErrorKind::UnaryOperatorUsage(op, t) => {
-                format!("Cannot use '{}' operator with '{}'", op, t)
+                format!("cannot use '{}' operator with '{}'", op, t)
             }
             ErrorKind::SyntaxError(token) => {
-                let mut s = format!("Unexpected token '{}'", token.found);
+                let mut s = format!("unexpected token '{}'", token.found);
 
                 if let Some(expected) = token.expected.clone() {
                     s += format!(", expected '{}'", expected).as_str();
@@ -91,22 +79,72 @@ impl Display for ErrorKind {
             }
             ErrorKind::WrongArgCount(err) => {
                 format!(
-                    "Function requires {} arguments, but {} were given",
+                    "function requires {} arguments, but {} were given",
                     err.expected, err.found
                 )
             }
             ErrorKind::BadCall(t) => {
-                format!("Cannot call '{}'", t)
+                format!("cannot call '{}'", t)
             }
             ErrorKind::NoIdentifier(name) => {
-                format!("Cannot find '{}' in current scope", name)
+                format!("cannot find '{}' in current scope", name)
             }
             ErrorKind::TypeMissmatch(err) => {
-                format!("Expected '{}', found '{}'", err.expected, err.found)
+                format!("expected '{}', found '{}'", err.expected, err.found)
             }
-            ErrorKind::AssignmentToTemporary => "Trying to assign to a temporary value".into(),
+            ErrorKind::AssignmentToTemporary => "trying to assign to a temporary value".into(),
         };
 
         write!(f, "{}", s)
     }
+}
+
+pub fn err_format(error: Error, path: &Path, file: &str) -> String {
+    let mut s = String::new();
+    let mut err_index = 0;
+    let err_count = error.errors.len();
+
+    for err in error.errors {
+        err_index += 1;
+
+        let mut snippet = String::new();
+        let mut i = 0;
+        let mut line: usize = 1;
+        let mut line_start = 0;
+
+        for l in file.lines() {
+            line_start = i;
+            i += l.len();
+
+            // account for crlf or lf
+            if let Some('\r') = file.chars().nth(i) {
+                i += 1;
+            }
+            i += 1;
+
+            if i > err.info.position {
+                snippet = l.to_string();
+                break;
+            }
+            line += 1;
+        }
+
+        let under = " ".repeat(err.info.position - line_start) + &"^".repeat(err.info.length);
+
+        let message = err.kind;
+        let path = path.display();
+        let line_padding = &" ".repeat(line.to_string().len());
+        let col = err.info.position - line_start + 1;
+
+        _ = write!(
+            s,
+            "\x1b[0;31m\x1b[1merror\x1b[0m: {message}\n \x1b[0;96m->\x1b[0m {path}:{line}:{col}\n\x1b[0;96m{line} |\x1b[0m {snippet}\n\x1b[0;96m{line_padding}   {under}\x1b[0m\n"
+        );
+
+        if err_index != err_count {
+            _ = write!(s, "\n");
+        }
+    }
+
+    s
 }
