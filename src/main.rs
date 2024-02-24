@@ -59,7 +59,7 @@ fn run_cli() {
                 println!("{}", v);
             }
             Err(err) => {
-                print!("{}", err_format(err, Path::new("<stdio>"), &code));
+                print!("{}", err_format(err, Path::new("<stdin>"), &code));
                 let _ = std::io::stdout().flush();
             }
         }
