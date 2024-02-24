@@ -2,7 +2,7 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashMap, fmt::Display, rc:
 
 use crate::{
     ast::Binary,
-    error::{Error, ErrorKind, TypeMissmatch, WrongArgCount},
+    error::{Error, ErrorKind, TypeMismatch, WrongArgCount},
     lexer::Info,
 };
 
@@ -197,7 +197,7 @@ fn get_type_call(call: &Call, info: Info, scope: &mut Scope) -> Result<TypeAndSc
                         error = Error::from_two(
                             error,
                             Error::new(
-                                ErrorKind::TypeMissmatch(TypeMissmatch {
+                                ErrorKind::TypeMismatch(TypeMismatch {
                                     expected: arg.0 .1.r#type.clone(),
                                     found: arg.0 .0.tp.clone(),
                                 }),
@@ -249,7 +249,7 @@ fn get_type_func(
                     error = Error::from_two(
                         error,
                         Error::new(
-                            ErrorKind::TypeMissmatch(TypeMissmatch {
+                            ErrorKind::TypeMismatch(TypeMismatch {
                                 expected: Type::Type(None),
                                 found: t.tp,
                             }),
@@ -286,7 +286,7 @@ fn get_type_func(
                     error = Error::from_two(
                         error,
                         Error::new(
-                            ErrorKind::TypeMissmatch(TypeMissmatch {
+                            ErrorKind::TypeMismatch(TypeMismatch {
                                 expected: expected.as_ref().clone(),
                                 found: output.tp,
                             }),
@@ -298,7 +298,7 @@ fn get_type_func(
                 error = Error::from_two(
                     error,
                     Error::new(
-                        ErrorKind::TypeMissmatch(TypeMissmatch {
+                        ErrorKind::TypeMismatch(TypeMismatch {
                             expected: Type::Type(None),
                             found: expected.tp,
                         }),
@@ -335,7 +335,7 @@ fn get_type_if_else(
     let condition_type = get_type(&if_else.condition, scope)?;
     if condition_type.tp != Type::Bool {
         return Err(Error::new(
-            ErrorKind::TypeMissmatch(TypeMissmatch {
+            ErrorKind::TypeMismatch(TypeMismatch {
                 expected: Type::Bool,
                 found: condition_type.tp,
             }),
@@ -349,7 +349,7 @@ fn get_type_if_else(
             let else_block_type = get_type(block, scope)?;
             if if_type.tp != else_block_type.tp {
                 return Err(Error::new(
-                    ErrorKind::TypeMissmatch(TypeMissmatch {
+                    ErrorKind::TypeMismatch(TypeMismatch {
                         expected: if_type.tp,
                         found: else_block_type.tp,
                     }),
@@ -403,7 +403,7 @@ fn get_type_assignment(
 
     if left.tp != right.tp {
         return Err(Error::new(
-            ErrorKind::TypeMissmatch(TypeMissmatch {
+            ErrorKind::TypeMismatch(TypeMismatch {
                 expected: left.tp,
                 found: right.tp,
             }),

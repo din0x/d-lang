@@ -28,7 +28,7 @@ pub enum ErrorKind {
     BadCall(Type),
     WrongArgCount(WrongArgCount),
     NoIdentifier(Box<str>),
-    TypeMissmatch(TypeMissmatch),
+    TypeMismatch(TypeMismatch),
     AssignmentToTemporary,
 }
 
@@ -39,7 +39,7 @@ pub struct WrongArgCount {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct TypeMissmatch {
+pub struct TypeMismatch {
     pub expected: Type,
     pub found: Type,
 }
@@ -89,7 +89,7 @@ impl Display for ErrorKind {
             ErrorKind::NoIdentifier(name) => {
                 format!("cannot find '{}' in current scope", name)
             }
-            ErrorKind::TypeMissmatch(err) => {
+            ErrorKind::TypeMismatch(err) => {
                 format!("expected '{}', found '{}'", err.expected, err.found)
             }
             ErrorKind::AssignmentToTemporary => "trying to assign to a temporary value".into(),

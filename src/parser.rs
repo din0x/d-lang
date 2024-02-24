@@ -12,7 +12,7 @@ const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_assignment,
     parse_comparison,
     parse_additive,
-    parse_multipicative,
+    parse_multiplicative,
     parse_unary,
     parse_call,
     parse_parenthesis,
@@ -134,7 +134,7 @@ make_binary_expr_parser!(
 );
 
 make_binary_expr_parser!(
-    parse_multipicative,
+    parse_multiplicative,
     (Operator::Star, Binop::Multiplication),
     (Operator::Slash, Binop::Division)
 );
