@@ -29,7 +29,7 @@ fn eval_call(call: Call, scope: &mut Scope) -> EvalResult {
         unreachable!("type checker should ensure this is a function")
     };
 
-    let mut new_scope = Scope::new(Some(scope.clone()));
+    let mut new_scope = Scope::new(f.scope.clone());
 
     for (value, name) in call
         .args
@@ -104,7 +104,12 @@ fn eval_func(f: Function, scope: &mut Scope) -> EvalResult {
         })
         .unwrap_or(Type::Unit);
 
-    let func = Func { args, output, body };
+    let func = Func {
+        args,
+        output,
+        body,
+        scope: scope.clone(),
+    };
 
     scope.declare(name, Value::Func(func));
 
@@ -132,7 +137,7 @@ fn eval_assignment(assignment: Assign, scope: &mut Scope) -> EvalResult {
 }
 
 fn eval_block(expr: Block, scope: &mut Scope) -> EvalResult {
-    let mut scope = Scope::new(Some(scope.clone()));
+    let mut scope = Scope::new(scope.clone());
     for expr in Vec::from(expr.content) {
         eval(expr, &mut scope);
     }
@@ -204,6 +209,7 @@ pub struct Func {
     args: Box<[Arg]>,
     output: Type,
     body: Expr,
+    scope: Scope,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -302,21 +308,14 @@ impl Display for Type {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Scope(Rc<RefCell<ScopeContent>>);
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ScopeContent {
-    parent: Option<Scope>,
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct Scope {
     vars: HashMap<Box<str>, EvalResult>,
 }
 
 impl Scope {
-    pub fn new(parent: Option<Scope>) -> Scope {
-        Scope(Rc::new(RefCell::new(ScopeContent {
-            parent,
-            vars: HashMap::new(),
-        })))
+    pub fn new(parent: Scope) -> Scope {
+        Scope { vars: parent.vars }
     }
 
     pub fn prelude(&mut self) {
@@ -330,40 +329,13 @@ impl Scope {
     }
 
     pub fn declare(&mut self, name: Box<str>, value: Value) {
-        self.0
-            .as_ref()
-            .borrow_mut()
-            .vars
-            .insert(name, EvalResult::new(value));
-    }
-
-    fn get_scope(&self, name: &str) -> Option<Scope> {
-        if self.0.as_ref().borrow().vars.contains_key(name) {
-            return Some(self.clone());
-        }
-
-        if let Some(ref parent) = self.0.as_ref().borrow().parent {
-            return parent.get_scope(name);
-        }
-
-        None
+        self.vars.insert(name, EvalResult::new(value));
     }
 
     pub fn lookup(&self, name: &str) -> EvalResult {
-        self.get_scope(name)
-            .unwrap_or_else(|| panic!("cannot find '{}' in current scope", name))
-            .0
-            .as_ref()
-            .borrow()
-            .vars
+        self.vars
             .get(name)
-            .unwrap_or_else(|| panic!("cannot find '{}' in current scope", name))
+            .unwrap_or_else(|| unreachable!("cannot find '{}' in current scope", name))
             .clone()
-    }
-}
-
-impl Default for Scope {
-    fn default() -> Self {
-        Scope::new(None)
     }
 }
