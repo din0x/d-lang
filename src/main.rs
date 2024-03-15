@@ -50,7 +50,7 @@ fn run_cli() {
         }
 
         let tokens = lexer::parse_tokens(code.as_str());
-        let ast = parser::parse_ast(&tokens);
+        let ast = parser::parse_ast(&tokens, false);
         let valid = typing::is_valid(&ast, &mut scope);
 
         match valid {
@@ -81,7 +81,7 @@ fn exec(path: &Path) {
     };
 
     let tokens = lexer::parse_tokens(&buf);
-    let ast = parser::parse_ast(&tokens);
+    let ast = parser::parse_ast(&tokens, true);
 
     let (mut scope, mut runtime_scope) = create_scopes();
     let result = typing::is_valid(&ast, &mut scope).map(|_| ast);

@@ -366,18 +366,34 @@ fn get_type_if_else(
 }
 
 fn get_type_block(block: &Block, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {
-    for _expr in block.content.iter() {
-        // TODO: Require value to be ()
+    let mut scope = Scope::with_parent(scope);
+
+    let mut errors = Error { errors: Vec::new() };
+
+    for expr in block.content.iter() {
+        let t = get_type(expr, &mut scope);
+        match t {
+            Ok(_) => {}
+            Err(err) => errors = Error::from_two(errors, err),
+        }
     }
 
-    if let Some(ref tail) = block.tail {
-        return get_type(tail, &mut Scope::with_parent(scope));
+    let ret = block
+        .tail
+        .as_ref()
+        .map(|x| get_type(&x, &mut scope))
+        .unwrap_or(Ok(TypeAndScopeInfo {
+            tp: Type::Unit,
+            scope: None,
+        }));
+
+    let ret = ret.map_err(|mut x| errors.errors.append(&mut x.errors));
+
+    if errors.errors.is_empty() {
+        return Ok(ret.unwrap());
     }
 
-    Ok(TypeAndScopeInfo {
-        tp: Type::Unit,
-        scope: None,
-    })
+    Err(errors)
 }
 
 fn get_type_var_declaration(var: &Decl, scope: &mut Scope) -> Result<TypeAndScopeInfo, Error> {

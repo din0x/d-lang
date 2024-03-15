@@ -19,13 +19,54 @@ const EXPR_PARSERS: &[fn(&mut ParserData) -> Expr] = &[
     parse_primary,
 ];
 
-pub fn parse_ast(tokens: &[Token]) -> Expr {
+pub fn parse_ast(tokens: &[Token], require_ending_semicolon: bool) -> Expr {
     let mut parser = ParserData {
         tokens,
         expr_parsers: EXPR_PARSERS,
     };
 
-    parse_lower_level(&mut parser)
+    let mut exprs = Vec::new();
+
+    while !parser.eof() {
+        exprs.push(parse_lower_level(&mut parser));
+
+        if parser.eof() && !require_ending_semicolon {
+            break;
+        }
+
+        if parser.current().kind != TokenKind::Punctuation(Punctuation::Semicolon) {
+            let current = parser.current();
+
+            exprs.push(Expr {
+                kind: ExprKind::Illegal(Box::new(Illegal {
+                    expected: Some(TokenKind::Punctuation(Punctuation::Semicolon)),
+                    found: current.kind.clone(),
+                })),
+                info: Info {
+                    length: current.info.length,
+                    position: current.info.position,
+                },
+            });
+        } else {
+            parser.pop();
+        }
+    }
+
+    let last_info = tokens.last().map(|x| x.info).unwrap_or(Info {
+        length: 0,
+        position: 0,
+    });
+
+    Expr {
+        kind: ExprKind::Block(Box::new(Block {
+            content: exprs.into(),
+            tail: None,
+        })),
+        info: Info {
+            position: 0,
+            length: last_info.position + last_info.length,
+        },
+    }
 }
 
 fn parse_expr(parser: &mut ParserData) -> Expr {
